@@ -83,7 +83,6 @@ function startPolling() {
   const interval = getPollInterval();
   pollTimer = setInterval(checkInvites, interval);
   checkInvites();
-  log(`Polling every ${interval}ms.`);
 }
 
 function stopPolling() {

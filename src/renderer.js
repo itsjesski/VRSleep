@@ -38,7 +38,8 @@ function setStatus(enabled) {
 function appendLog(message) {
   const item = document.createElement('div');
   item.className = 'log-item';
-  item.textContent = message;
+  const timestamp = new Date().toLocaleTimeString();
+  item.textContent = `[${timestamp}] ${message}`;
   logList.prepend(item);
 }
 
@@ -201,11 +202,9 @@ toggleButton.addEventListener('click', async () => {
   if (status.sleepMode) {
     await window.sleepchat.stopSleep();
     setStatus(false);
-    appendLog('Sleep mode stopped.');
   } else {
     await window.sleepchat.startSleep();
     setStatus(true);
-    appendLog('Sleep mode started.');
   }
 });
 
