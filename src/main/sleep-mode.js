@@ -2,6 +2,7 @@ function createSleepMode({
   getWhitelist,
   fetchInvites,
   sendInvite,
+  deleteNotification,
   isReadyForApi,
   log,
   pollIntervalMs,
@@ -10,6 +11,7 @@ function createSleepMode({
   let sleepMode = false;
   let pollTimer = null;
   const handledInviteIds = new Set();
+  const handledSenderIds = new Set(); // Track by sender to prevent multiple invites to same person
 
   function getPollInterval() {
     const raw = Number(pollIntervalMs);
@@ -23,39 +25,71 @@ function createSleepMode({
 
   async function checkInvites() {
     if (!sleepMode) return;
-    if (!isReadyForApi()) {
-      log('API not ready: login required.');
-      return;
-    }
+    if (!isReadyForApi()) return;
 
     let invites;
     try {
       invites = await fetchInvites();
     } catch (error) {
-      log(`Failed to fetch invites: ${error.message}`);
       return;
     }
 
     if (!Array.isArray(invites) || invites.length === 0) return;
 
     const whitelist = getWhitelist().map(normalizeEntry).filter(Boolean);
+    
     for (const invite of invites) {
       if (!invite) continue;
       const inviteId = invite.id || invite.notificationId || invite._id;
-      if (inviteId && handledInviteIds.has(inviteId)) continue;
-
-      const senderId = normalizeEntry(invite.senderId || invite.senderUserId || invite.userId);
+      
+      const senderIdRaw = invite.senderId || invite.senderUserId || invite.userId;
+      const senderIdNorm = normalizeEntry(senderIdRaw);
       const senderName = normalizeEntry(invite.senderDisplayName || invite.senderUsername || invite.displayName);
+      const displayName = invite.senderDisplayName || invite.senderUsername || senderIdRaw;
 
-      const matches = whitelist.includes(senderId) || whitelist.includes(senderName);
-      if (!matches) continue;
+      // Skip if we've already handled this sender in this session
+      if (handledSenderIds.has(senderIdRaw)) {
+        try {
+          if (inviteId) await deleteNotification(inviteId);
+        } catch (error) {
+          // Silent fail
+        }
+        continue;
+      }
+
+      // Skip if we've already handled this specific notification
+      if (inviteId && handledInviteIds.has(inviteId)) {
+        continue;
+      }
+      
+      const matches = whitelist.includes(senderIdNorm) || whitelist.includes(senderName);
+      if (!matches) {
+        try {
+          if (inviteId) await deleteNotification(inviteId);
+        } catch (error) {
+          // Silent fail
+        }
+        continue;
+      }
 
       try {
-        await sendInvite(senderId);
+        await sendInvite(senderIdRaw, inviteId);
+        handledSenderIds.add(senderIdRaw);
         if (inviteId) handledInviteIds.add(inviteId);
-        log(`Sent invite to ${invite.senderDisplayName || invite.senderUsername || senderId}.`);
+        log(`Sent invite to ${displayName}`);
+        
+        try {
+          if (inviteId) await deleteNotification(inviteId);
+        } catch (error) {
+          // Silent fail
+        }
       } catch (error) {
-        log(`Failed to send invite: ${error.message}`);
+        log(`Failed to send invite to ${displayName}: ${error.message}`);
+        try {
+          if (inviteId) await deleteNotification(inviteId);
+        } catch (delError) {
+          // Silent fail
+        }
       }
     }
   }

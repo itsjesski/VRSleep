@@ -1,6 +1,6 @@
 const { app, BrowserWindow } = require('electron');
 const { getWhitelist, setWhitelist } = require('./whitelist-store');
-const { fetchInvites, sendInvite } = require('./vrcapi');
+const { fetchInvites, sendInvite, deleteNotification } = require('./vrcapi');
 const { login, verifyTwoFactor, logout, getAuthStatus, isReadyForApi } = require('./vrcauth');
 const { applyLowRamSettings } = require('./main/low-ram');
 const { setupAutoUpdater, checkForUpdates } = require('./main/updater');
@@ -32,6 +32,7 @@ app.whenReady().then(() => {
     getWhitelist,
     fetchInvites,
     sendInvite,
+    deleteNotification,
     isReadyForApi,
     log,
     pollIntervalMs: process.env.SLEEPCHAT_POLL_MS || DEFAULT_POLL_MS,
