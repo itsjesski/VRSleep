@@ -12,6 +12,7 @@ const usernameInput = document.getElementById('username');
 const passwordInput = document.getElementById('password');
 const loginButton = document.getElementById('login');
 const logoutButton = document.getElementById('logout');
+const updateButton = document.getElementById('update-btn');
 const modal = document.getElementById('modal');
 const modalTitle = document.getElementById('modal-title');
 const modalHint = document.getElementById('modal-hint');
@@ -240,7 +241,15 @@ toggleButton.addEventListener('click', async () => {
   }
 });
 
+updateButton.addEventListener('click', async () => {
+  await window.sleepchat.downloadUpdate();
+});
+
 window.sleepchat.onLog((message) => appendLog(message));
+
+window.sleepchat.onUpdateAvailable(() => {
+  updateButton.style.display = 'block';
+});
 
 (async () => {
   await loadWhitelist();

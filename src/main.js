@@ -3,12 +3,13 @@ const { getWhitelist, setWhitelist } = require('./whitelist-store');
 const { fetchInvites, sendInvite, deleteNotification } = require('./vrcapi');
 const { login, verifyTwoFactor, logout, getAuthStatus, isReadyForApi } = require('./vrcauth');
 const { applyLowRamSettings } = require('./main/low-ram');
-const { setupAutoUpdater, checkForUpdates } = require('./main/updater');
+const updater = require('./main/updater');
 const { createMainWindow } = require('./main/window');
 const { createSleepMode } = require('./main/sleep-mode');
 const { registerIpcHandlers } = require('./main/ipc');
 
 let mainWindow;
+let updaterInstance = null;
 
 const DEFAULT_POLL_MS = 15000;
 const MIN_POLL_MS = 10000;
@@ -24,9 +25,9 @@ applyLowRamSettings();
 app.whenReady().then(() => {
   app.setAppUserModelId('com.sleepchat.app');
 
-  mainWindow = createMainWindow(() => checkForUpdates());
-  setupAutoUpdater(() => mainWindow, log);
-  checkForUpdates();
+  mainWindow = createMainWindow(() => updater.checkForUpdates());
+  updaterInstance = updater.setupAutoUpdater(() => mainWindow, log);
+  updater.checkForUpdates();
 
   const sleepMode = createSleepMode({
     getWhitelist,
@@ -48,12 +49,13 @@ app.whenReady().then(() => {
       verify: verifyTwoFactor,
       logout,
       getStatus: getAuthStatus
-    }
+    },
+    updater: updaterInstance
   });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      mainWindow = createMainWindow(() => checkForUpdates());
+      mainWindow = createMainWindow(() => updater.checkForUpdates());
     }
   });
 });

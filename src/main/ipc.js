@@ -4,7 +4,8 @@ function registerIpcHandlers({
   getWhitelist,
   setWhitelist,
   sleepMode,
-  auth
+  auth,
+  updater
 }) {
   ipcMain.handle('whitelist:get', () => getWhitelist());
   ipcMain.handle('whitelist:set', (_event, list) => setWhitelist(list));
@@ -46,6 +47,13 @@ function registerIpcHandlers({
 
   ipcMain.handle('auth:logout', async () => {
     await auth.logout();
+    return { ok: true };
+  });
+
+  ipcMain.handle('update:download', async () => {
+    if (updater) {
+      updater.startDownload();
+    }
     return { ok: true };
   });
 }

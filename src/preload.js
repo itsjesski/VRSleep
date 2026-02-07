@@ -10,8 +10,13 @@ contextBridge.exposeInMainWorld('sleepchat', {
   login: (username, password) => ipcRenderer.invoke('auth:login', { username, password }),
   verifyTwoFactor: (type, code) => ipcRenderer.invoke('auth:verify', { type, code }),
   logout: () => ipcRenderer.invoke('auth:logout'),
+  downloadUpdate: () => ipcRenderer.invoke('update:download'),
   onLog: (handler) => {
     ipcRenderer.removeAllListeners('log');
     ipcRenderer.on('log', (_event, message) => handler(message));
+  },
+  onUpdateAvailable: (handler) => {
+    ipcRenderer.removeAllListeners('update-available');
+    ipcRenderer.on('update-available', () => handler());
   }
 });
