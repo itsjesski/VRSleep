@@ -9,7 +9,8 @@
   "scripts": {
     "start": "electron .",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder --win"
+    "dist": "electron-builder --win",
+    "release": "npm version patch && git push && git push --tags"
   },
   "dependencies": {
     "electron-updater": "^6.3.9"
@@ -41,7 +42,7 @@
         "provider": "github",
         "owner": "itsjesski",
         "repo": "VRSleep",
-        "releaseType": "release"
+        "releaseType": "draft"
       }
     ]
   }
