@@ -1,4 +1,4 @@
-const { BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
 
 function createMainWindow(onCheckForUpdates) {
@@ -20,6 +20,7 @@ function createMainWindow(onCheckForUpdates) {
 
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.loadFile(path.join(__dirname, '..', 'index.html'));
+  mainWindow.setTitle(`VRSleep - v${app.getVersion()}`);
 
   const menu = Menu.buildFromTemplate([
     {

@@ -5,6 +5,10 @@ function setupAutoUpdater(getWindow, log) {
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
 
+  let errorNotified = false;
+  let downloadNotified = false;
+  let installNotified = false;
+
   autoUpdater.on('update-available', async () => {
     const result = await dialog.showMessageBox(getWindow(), {
       type: 'info',
@@ -16,11 +20,23 @@ function setupAutoUpdater(getWindow, log) {
     });
 
     if (result.response === 0) {
+      if (!downloadNotified) {
+        downloadNotified = true;
+        log('Downloading the latest release.');
+      }
       autoUpdater.downloadUpdate();
     }
   });
 
+  autoUpdater.on('update-not-available', () => {
+    log('You are on the latest version of VRSleep.');
+  });
+
   autoUpdater.on('update-downloaded', async () => {
+    if (!installNotified) {
+      installNotified = true;
+      log('Installing the latest release.');
+    }
     const result = await dialog.showMessageBox(getWindow(), {
       type: 'info',
       buttons: ['Install and restart', 'Later'],
@@ -35,8 +51,10 @@ function setupAutoUpdater(getWindow, log) {
     }
   });
 
-  autoUpdater.on('error', (error) => {
-    log(`Updater error: ${error.message}`);
+  autoUpdater.on('error', () => {
+    if (errorNotified) return;
+    errorNotified = true;
+    log('Auto updater failed. Please visit the repo and download the latest release.');
   });
 }
 
