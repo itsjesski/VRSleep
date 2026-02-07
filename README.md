@@ -37,6 +37,17 @@ is found, users are prompted to download and install it.
 
 Then publish releases via GitHub, and the app will offer updates.
 
+## Automatic releases on tag
+This repo includes a GitHub Actions workflow that builds and publishes a release
+whenever you push a tag that starts with `v`.
+
+```powershell
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The workflow will build the Windows installer and attach it to the GitHub Release.
+
 ## Environment variables
 - `SLEEPCHAT_POLL_MS`: Optional. Poll interval in milliseconds (default 15000).
 - `SLEEPCHAT_MAX_OLD_SPACE_MB`: Optional. V8 old-space limit (default 128).

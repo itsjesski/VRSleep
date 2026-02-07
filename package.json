@@ -37,8 +37,8 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "YOUR_GITHUB_USER",
-        "repo": "YOUR_REPO",
+        "owner": "itsjesski",
+        "repo": "VRSleep",
         "releaseType": "release"
       }
     ]
