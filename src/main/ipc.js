@@ -3,6 +3,8 @@ const { ipcMain } = require('electron');
 function registerIpcHandlers({
   getWhitelist,
   setWhitelist,
+  getSettings,
+  setSettings,
   sleepMode,
   auth,
   updater,
@@ -11,11 +13,22 @@ function registerIpcHandlers({
   ipcMain.handle('whitelist:get', () => getWhitelist());
   ipcMain.handle('whitelist:set', (_event, list) => setWhitelist(list));
 
+  ipcMain.handle('settings:get', () => getSettings());
+  ipcMain.handle('settings:set', (_event, settings) => setSettings(settings));
+
   ipcMain.handle('sleep:start', () => sleepMode.start());
   ipcMain.handle('sleep:stop', () => sleepMode.stop());
   ipcMain.handle('sleep:status', () => sleepMode.status());
 
   ipcMain.handle('auth:status', () => auth.getStatus());
+  ipcMain.handle('auth:user', async () => {
+    try {
+      const user = await getCurrentUser();
+      return { ok: true, user };
+    } catch (error) {
+      return { ok: false, error: error.message };
+    }
+  });
   ipcMain.handle('auth:login', async (_event, payload) => {
     const username = String(payload?.username || '').trim();
     const password = String(payload?.password || '');

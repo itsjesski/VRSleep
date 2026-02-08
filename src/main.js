@@ -1,6 +1,7 @@
 const { app, BrowserWindow } = require('electron');
 const { getWhitelist, setWhitelist } = require('./whitelist-store');
-const { fetchInvites, sendInvite, deleteNotification, getFriends } = require('./vrcapi');
+const { getSettings, setSettings } = require('./settings-store');
+const { fetchInvites, sendInvite, deleteNotification, getFriends, getCurrentUser, updateStatus } = require('./vrcapi');
 const { login, verifyTwoFactor, logout, getAuthStatus, isReadyForApi } = require('./vrcauth');
 const { applyLowRamSettings } = require('./main/low-ram');
 const updater = require('./main/updater');
@@ -10,6 +11,8 @@ const { registerIpcHandlers } = require('./main/ipc');
 
 let mainWindow;
 let updaterInstance = null;
+let sleepModeInstance = null;
+let isQuitting = false;
 
 const DEFAULT_POLL_MS = 15000;
 const MIN_POLL_MS = 10000;
@@ -17,6 +20,12 @@ const MIN_POLL_MS = 10000;
 function log(message) {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('log', message);
+  }
+}
+
+function notifySettingsChanged(settings) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('settings-changed', settings);
   }
 }
 
@@ -29,12 +38,20 @@ app.whenReady().then(() => {
   updaterInstance = updater.setupAutoUpdater(() => mainWindow, log);
   updater.checkForUpdates();
 
-  const sleepMode = createSleepMode({
+  sleepModeInstance = createSleepMode({
     getWhitelist,
     fetchInvites,
     sendInvite,
     deleteNotification,
     isReadyForApi,
+    getCurrentUser,
+    updateStatus,
+    getSettings,
+    setSettings: (settings) => {
+      const next = setSettings(settings);
+      notifySettingsChanged(next);
+      return next;
+    },
     log,
     pollIntervalMs: process.env.SLEEPCHAT_POLL_MS || DEFAULT_POLL_MS,
     minPollMs: MIN_POLL_MS
@@ -43,7 +60,16 @@ app.whenReady().then(() => {
   registerIpcHandlers({
     getWhitelist,
     setWhitelist,
-    sleepMode,
+    getSettings,
+    setSettings: (settings) => {
+      const next = setSettings(settings);
+      if (sleepModeInstance) {
+        sleepModeInstance.refreshStatus();
+      }
+      notifySettingsChanged(next);
+      return next;
+    },
+    sleepMode: sleepModeInstance,
     auth: {
       login,
       verify: verifyTwoFactor,
@@ -51,7 +77,8 @@ app.whenReady().then(() => {
       getStatus: getAuthStatus
     },
     updater: updaterInstance,
-    getFriends
+    getFriends,
+    getCurrentUser
   });
 
   app.on('activate', () => {
@@ -59,6 +86,20 @@ app.whenReady().then(() => {
       mainWindow = createMainWindow(() => updater.checkForUpdates());
     }
   });
+});
+
+app.on('before-quit', async (event) => {
+  if (isQuitting) return;
+  if (sleepModeInstance && sleepModeInstance.status().sleepMode) {
+    event.preventDefault();
+    isQuitting = true;
+    try {
+      await sleepModeInstance.stop();
+    } catch (error) {
+      // Ignore error during quit
+    }
+    app.quit();
+  }
 });
 
 app.on('window-all-closed', () => {

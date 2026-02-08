@@ -26,15 +26,22 @@ const friendsList = document.getElementById('friends-list');
 const friendsSave = document.getElementById('friends-save');
 const friendsClose = document.getElementById('friends-close');
 const tabWhitelist = document.getElementById('tab-whitelist');
+const tabSettings = document.getElementById('tab-settings');
 const tabActivity = document.getElementById('tab-activity');
 const contentWhitelist = document.getElementById('content-whitelist');
+const contentSettings = document.getElementById('content-settings');
 const contentActivity = document.getElementById('content-activity');
+
+const autoStatusBadge = document.getElementById('auto-status-badge');
+const sleepStatus = document.getElementById('sleep-status');
+const sleepStatusDescription = document.getElementById('sleep-status-description');
 
 let twoFactorType = 'totp';
 let twoFactorMethods = [];
 let currentUser = null;
 let whitelistDirty = false;
 let saveTimer = null;
+let settingsTimer = null;
 let allFriends = [];
 let selectedFriends = new Set();
 
@@ -45,9 +52,10 @@ function showView(view) {
 }
 
 function setStatus(enabled) {
-  statusBadge.textContent = enabled ? 'On' : 'Off';
+  statusBadge.textContent = enabled ? 'Enabled' : 'Disabled';
   statusBadge.className = enabled ? 'status on' : 'status off';
-  toggleButton.textContent = enabled ? 'Stop Sleep Mode' : 'Start Sleep Mode';
+  toggleButton.textContent = enabled ? 'Disable Sleep Mode' : 'Enable Sleep Mode';
+  toggleButton.className = enabled ? 'secondary' : 'primary';
 }
 
 function appendLog(message) {
@@ -60,7 +68,7 @@ function appendLog(message) {
 
 function setWhitelistStatus(text, state = 'saved') {
   whitelistStatus.textContent = text;
-  whitelistStatus.className = `whitelist-status ${state}`;
+  whitelistStatus.className = `status ${state}`;
 }
 
 function setAuthHint(message, isError = false) {
@@ -72,6 +80,7 @@ function setUserInfo(user) {
   currentUser = user;
   if (user) {
     userDisplayName.textContent = user.displayName || user.username || 'User';
+    
     userHeader.style.display = 'flex';
     showView(mainView);
   } else {
@@ -105,14 +114,22 @@ function updateModalCopy() {
 }
 
 async function refreshAuthStatus() {
-  const status = await window.sleepchat.getAuthStatus();
-  if (status.authenticated && status.user) {
-    setUserInfo(status.user);
-  } else if (status.authenticated) {
-    // Authenticated but no user data cached, show basic info
-    setUserInfo({ id: status.userId, displayName: 'Loading...' });
-  } else {
-    setUserInfo(null);
+  try {
+    const status = await window.sleepchat.getAuthStatus();
+    if (status.authenticated) {
+      const userResult = await window.sleepchat.getCurrentUser();
+      if (userResult.ok && userResult.user) {
+        setUserInfo(userResult.user);
+      } else if (status.user) {
+        setUserInfo(status.user);
+      } else {
+        setUserInfo({ id: status.userId, displayName: 'Loading...' });
+      }
+    } else {
+      setUserInfo(null);
+    }
+  } catch (error) {
+    console.error('Failed to refresh status:', error);
   }
 }
 
@@ -171,6 +188,60 @@ tabActivity.addEventListener('click', () => {
   tabWhitelist.classList.remove('active');
   contentActivity.classList.add('active');
   contentWhitelist.classList.remove('active');
+});
+
+let isAutoStatusEnabled = false;
+
+function updateAutoStatusUI(enabled) {
+  isAutoStatusEnabled = enabled;
+  autoStatusBadge.textContent = enabled ? 'Enabled' : 'Disabled';
+  autoStatusBadge.className = enabled ? 'status on' : 'status off';
+  autoStatusToggle.className = enabled ? 'secondary' : 'primary';
+}
+
+const STATUS_COLORS = {
+  'none': '#9ca3af',
+  'join me': '#42CAFF',
+  'active': '#51E57E',
+  'ask me': '#E8B138',
+  'busy': '#C93131'
+};
+
+function updateAutoStatusUI() {
+  const hasStatus = sleepStatus.value !== 'none';
+  const hasMessage = sleepStatusDescription.value.trim() !== '';
+  const enabled = hasStatus || hasMessage;
+  
+  autoStatusBadge.textContent = enabled ? 'Enabled' : 'Disabled';
+  autoStatusBadge.className = enabled ? 'status on' : 'status off';
+  
+  // Update dropdown text color to match selected status
+  sleepStatus.style.color = STATUS_COLORS[sleepStatus.value] || '#e3e5e8';
+}
+
+async function saveSettings() {
+  const settings = {
+    sleepStatus: sleepStatus.value,
+    sleepStatusDescription: sleepStatusDescription.value
+  };
+  await window.sleepchat.setSettings(settings);
+}
+
+function scheduleSettingsSave() {
+  if (settingsTimer) clearTimeout(settingsTimer);
+  settingsTimer = setTimeout(async () => {
+    await saveSettings();
+  }, 1000);
+}
+
+sleepStatus.addEventListener('change', () => {
+  updateAutoStatusUI();
+  scheduleSettingsSave();
+});
+
+sleepStatusDescription.addEventListener('input', () => {
+  updateAutoStatusUI();
+  scheduleSettingsSave();
 });
 
 loginButton.addEventListener('click', async () => {
@@ -407,8 +478,16 @@ window.sleepchat.onUpdateAvailable(() => {
   updateButton.style.display = 'block';
 });
 
+async function loadSettings() {
+  const settings = await window.sleepchat.getSettings();
+  sleepStatus.value = settings.sleepStatus || 'none';
+  sleepStatusDescription.value = settings.sleepStatusDescription || '';
+  updateAutoStatusUI();
+}
+
 (async () => {
   await loadWhitelist();
+  await loadSettings();
   const status = await window.sleepchat.getStatus();
   setStatus(status.sleepMode);
   await refreshAuthStatus();

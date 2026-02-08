@@ -40,7 +40,7 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 16px;
+        margin-bottom: 24px;
       }
       .user-header {
         display: flex;
@@ -48,17 +48,23 @@
         gap: 12px;
       }
       .user-name {
-        font-size: 14px;
+        font-size: 15px;
+        font-weight: 500;
         color: #e5e7eb;
+        line-height: 28px;
       }
       .user-header button {
         margin: 0;
-        padding: 6px 12px;
+        padding: 0 12px;
         font-size: 12px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
       h1 {
         font-size: 18px;
-        margin: 0 0 12px;
+        margin: 0;
       }
       .card {
         background: var(--color-card);
@@ -89,21 +95,34 @@
         margin-bottom: 8px;
         box-sizing: border-box;
       }
-      .status {
-        padding: 6px 10px;
-        border-radius: 6px;
-        font-size: 12px;
-        display: inline-block;
-        margin-bottom: 12px;
-      }
-      .status.on {
+            .status {
+              padding: 4px 10px;
+              border-radius: 6px;
+              font-size: 11px;
+              font-weight: 600;
+              display: inline-block;
+              text-transform: uppercase;
+              letter-spacing: 0.02em;
+            }
+      
+            .status.on, .status.saved {
+      
         background: var(--color-status-on-bg);
         color: var(--color-status-on-text);
       }
-      .status.off {
+      .status.off, .status.unsaved {
         background: var(--color-status-off-bg);
         color: var(--color-status-off-text);
       }
+      .status.warning, .status.saving {
+        background: rgba(217, 184, 106, 0.1);
+        color: var(--color-warning);
+      }
+      .status.error {
+        background: rgba(248, 113, 113, 0.1);
+        color: #f87171;
+      }
+
       textarea {
         width: 100%;
         min-height: 140px;
@@ -154,28 +173,6 @@
         margin-top: 6px;
         font-size: 11px;
         color: var(--color-muted);
-      }
-      .whitelist-status {
-        font-size: 11px;
-        font-weight: 500;
-        padding: 4px 8px;
-        border-radius: 4px;
-      }
-      .whitelist-status.saved {
-        color: #4ade80;
-        background: rgba(74, 222, 128, 0.1);
-      }
-      .whitelist-status.saving {
-        color: var(--color-warning);
-        background: rgba(217, 184, 106, 0.1);
-      }
-      .whitelist-status.unsaved {
-        color: var(--color-warning);
-        background: rgba(217, 184, 106, 0.1);
-      }
-      .whitelist-status.error {
-        color: #f87171;
-        background: rgba(248, 113, 113, 0.1);
       }
       .modal {
         position: fixed;
@@ -315,13 +312,29 @@
     <!-- Main View -->
     <div id="main-view" class="view">
       <div class="card">
-        <div class="row space">
+        <div class="row space" style="align-items: center; margin-bottom: 12px;">
           <strong>Sleep Mode</strong>
-          <div id="status" class="status off">Off</div>
+          <div id="status" class="status off">Disabled</div>
         </div>
         <p class="hint">When enabled, SleepChat will automatically respond to invite requests from whitelisted users.</p>
-        <button id="toggle" class="primary">Start Sleep Mode</button>
-      </div>
+        <button id="toggle" class="primary" style="width: 100%; margin-bottom: 16px;">Enable Sleep Mode</button>
+
+        <div style="border-top: 1px solid var(--color-border); padding-top: 16px; margin-top: 8px;">
+          <div class="row space" style="align-items: center; margin-bottom: 8px;">
+            <strong>Custom Statue</strong>
+            <div id="auto-status-badge" class="status off">Disabled</div>
+          </div>
+          <div class="row" style="gap: 8px; margin-top: 4px;">
+            <select id="sleep-status" style="width: 120px; background: var(--color-input-bg); border: 1px solid var(--color-border); color: var(--color-text); border-radius: 8px; padding: 8px; box-sizing: border-box; flex-shrink: 0;">
+              <option value="none" style="color: #9ca3af; background: #111315;">None</option>
+              <option value="join me" style="color: #42CAFF; background: #111315;">Join Me</option>
+              <option value="active" style="color: #51E57E; background: #111315;">Active</option>
+              <option value="ask me" style="color: #E8B138; background: #111315;">Ask Me</option>
+              <option value="busy" style="color: #C93131; background: #111315;">Busy</option>
+            </select>
+            <input id="sleep-status-description" placeholder="None" style="margin: 0; flex: 1;" />
+          </div>
+        </div>
       </div>
 
       <div class="card">
@@ -331,12 +344,12 @@
         </div>
 
         <div id="content-whitelist" class="tab-content active">
-          <div class="row space" style="margin-bottom: 6px;">
+          <div class="row space" style="align-items: center; margin-bottom: 12px;">
             <label style="margin: 0;">Whitelist (one per line)</label>
-            <div id="whitelist-status" class="whitelist-status saved">Saved</div>
+            <div id="whitelist-status" class="status saved">Saved</div>
           </div>
           <textarea id="whitelist" placeholder="userId or display name"></textarea>
-          <button id="manage-whitelist" class="secondary">Select from Friends</button>
+          <button id="manage-whitelist" class="secondary" style="width: 100%; margin-top: 12px;">Select from Friends</button>
         </div>
 
         <div id="content-activity" class="tab-content">

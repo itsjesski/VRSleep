@@ -19,8 +19,8 @@
     "electron-updater": "^6.3.9"
   },
   "devDependencies": {
-    "electron": "^30.1.0",
-    "electron-builder": "^24.13.3"
+    "electron": "^40.2.1",
+    "electron-builder": "^26.7.0"
   },
   "build": {
     "appId": "com.vrsleep.app",

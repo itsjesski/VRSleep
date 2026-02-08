@@ -152,9 +152,44 @@ async function getFriends() {
   }));
 }
 
+async function getCurrentUser() {
+  const url = buildUrl('/auth/user');
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: getHeaders()
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to get current user (${response.status})`);
+  }
+
+  return await response.json();
+}
+
+async function updateStatus(userId, status, statusDescription) {
+  if (!userId) throw new Error('Missing user id');
+  const url = buildUrl(`/users/${encodeURIComponent(userId)}`);
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: getHeaders(),
+    body: JSON.stringify({
+      status,
+      statusDescription
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to update status (${response.status})`);
+  }
+
+  return await response.json();
+}
+
 module.exports = {
   fetchInvites,
   sendInvite,
   deleteNotification,
-  getFriends
+  getFriends,
+  getCurrentUser,
+  updateStatus
 };
