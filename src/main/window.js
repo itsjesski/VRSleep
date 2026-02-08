@@ -6,7 +6,7 @@ function createMainWindow(onCheckForUpdates) {
     width: 500,
     height: 750,
     show: false,
-    frame: false,
+    icon: path.join(__dirname, '..', '..', 'images', 'icon.ico'),
     backgroundColor: '#0f1115',
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload.js'),
@@ -60,7 +60,7 @@ function createMainWindow(onCheckForUpdates) {
       ]
     }
   ]);
-  Menu.setApplicationMenu(menu);
+  Menu.setApplicationMenu(null);
 
   return mainWindow;
 }
