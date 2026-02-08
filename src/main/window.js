@@ -6,6 +6,7 @@ function createMainWindow(onCheckForUpdates) {
     width: 500,
     height: 750,
     show: false,
+    frame: false,
     backgroundColor: '#0f1115',
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload.js'),
