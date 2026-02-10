@@ -253,14 +253,16 @@ async function getMessageSlots(userId, type = "requestResponse") {
  */
 async function updateMessageSlot(userId, type, slot, message) {
   if (!userId) throw new Error("Missing user id");
-  console.log(`[API] updateMessageSlot: type=${type}, slot=${slot}`);
+  console.log(
+    `[API] updateMessageSlot: type=${type}, slot=${slot}, message="${message}"`,
+  );
 
   const { json } = await requestJson(
-    `/message/${encodeURIComponent(userId)}/${encodeURIComponent(type)}/${encodeURIComponent(slot)}`,
+    `/message/${encodeURIComponent(userId)}/${encodeURIComponent(type)}/${Number(slot)}`,
     {
       method: "PUT",
       headers: getHeaders(),
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message: String(message) }),
     },
   );
 

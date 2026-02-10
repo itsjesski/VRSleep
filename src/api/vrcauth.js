@@ -146,7 +146,10 @@ async function requestJson(path, options = {}) {
     if (!response.ok) {
       const message =
         json?.error?.message || json?.message || `HTTP ${response.status}`;
-      throw new Error(message);
+      const err = new Error(message);
+      err.status = response.status;
+      err.data = json; // Attach full error details (like cooldown messages)
+      throw err;
     }
 
     return { response, json };

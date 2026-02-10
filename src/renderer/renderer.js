@@ -301,12 +301,17 @@ function updateApplyButtonState() {
   const slot = Number(inviteMessageSlot.value);
 
   // Guard: Do not overwrite the button while an operation is in progress.
+  if (isApplying) {
+    return;
+  }
+
+  // If the button text is stuck on a loading state but we aren't applying, reset it.
   if (
     ["Applying...", "Checking...", "Loading..."].includes(
       applySlotButton.textContent,
     )
   ) {
-    return;
+    applySlotButton.textContent = "Apply";
   }
 
   const unlockTime = slotCooldowns[type]?.[slot] || 0;
@@ -346,11 +351,11 @@ function updateApplyButtonState() {
 }
 
 /**
- * Countdown Timer: Updates the Apply button every 500ms to show live cooldown countdown.
+ * UI Heartbeat: Updates the 'Apply' button countdown every second.
  */
 setInterval(() => {
   updateApplyButtonState();
-}, 500);
+}, 1000);
 
 /**
  * Background Polling: Refreshes ONLY the currently selected slot every 60 seconds.
@@ -360,16 +365,21 @@ setInterval(async () => {
   if (currentUser && !isApplying) {
     const type = inviteMessageType.value;
     try {
-      const result = await window.sleepchat.getMessageSlot(type, Number(inviteMessageSlot.value));
+      const result = await window.sleepchat.getMessageSlot(
+        type,
+        Number(inviteMessageSlot.value),
+      );
       if (result.ok) {
         const slot = Number(inviteMessageSlot.value);
         if (!cachedSlotsData[type]) {
-          cachedSlotsData[type] = Array(12).fill("").map((_, i) => ({ slot: i, message: "" }));
+          cachedSlotsData[type] = Array(12)
+            .fill("")
+            .map((_, i) => ({ slot: i, message: "" }));
         }
         const data = result.slotData;
         const message = typeof data === "string" ? data : data?.message || "";
         cachedSlotsData[type][slot] = { slot, message };
-        
+
         const cooldowns = await window.sleepchat.getCooldowns();
         if (cooldowns) slotCooldowns = cooldowns;
         updateSlotPreviews();
@@ -638,15 +648,26 @@ applySlotButton.addEventListener("click", async () => {
     );
     if (!result.ok) throw new Error(result.error);
 
-    if (Array.isArray(result.result)) {
-      cachedSlotsData[type] = result.result;
-      const cooldowns = await window.sleepchat.getCooldowns();
-      if (cooldowns) slotCooldowns = cooldowns;
-      appendLog(`Updated Slot ${slot + 1}.`);
-      updateSlotPreviews();
-    } else {
-      appendLog(`Error: Unexpected response format from API.`);
+    // Update local cache with the new message immediately
+    if (!cachedSlotsData[type]) {
+      cachedSlotsData[type] = Array(12)
+        .fill(null)
+        .map((_, i) => ({ slot: i, message: "" }));
     }
+
+    if (Array.isArray(result.result)) {
+      // API returned all 12 slots
+      cachedSlotsData[type] = result.result;
+    } else {
+      // Fallback: update just the targeted slot
+      cachedSlotsData[type][slot] = { slot, message };
+    }
+
+    const cooldowns = await window.sleepchat.getCooldowns();
+    if (cooldowns) slotCooldowns = cooldowns;
+
+    appendLog(`Updated Slot ${slot + 1}.`);
+    updateSlotPreviews();
   } catch (e) {
     appendLog(`Error: ${e.message}`);
   } finally {
