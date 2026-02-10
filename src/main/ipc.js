@@ -183,7 +183,7 @@ function registerIpcHandlers({
           message,
         );
 
-        // VRChat returns the state of all 12 slots upon a successful update
+        // VRChat returns an array of slots (all 12, or normalized to array)
         if (Array.isArray(result)) {
           const cache = messageSlotsStore.getCachedSlots();
           cache[type] = result.map((s) => s.message);

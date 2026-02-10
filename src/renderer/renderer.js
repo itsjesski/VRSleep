@@ -346,16 +346,30 @@ function updateApplyButtonState() {
 }
 
 /**
- * Background Polling: Refreshes the currently visible slot type every 60 seconds.
- * This keeps the UI in sync without excessive API traffic.
+ * Countdown Timer: Updates the Apply button every 500ms to show live cooldown countdown.
+ */
+setInterval(() => {
+  updateApplyButtonState();
+}, 500);
+
+/**
+ * Background Polling: Refreshes ONLY the currently selected slot every 60 seconds.
+ * This keeps the UI in sync without fetching all 12 slots unnecessarily.
  */
 setInterval(async () => {
   if (currentUser && !isApplying) {
     const type = inviteMessageType.value;
     try {
-      const result = await window.sleepchat.getMessageSlots(type);
-      if (result.ok && Array.isArray(result.messages)) {
-        cachedSlotsData[type] = result.messages;
+      const result = await window.sleepchat.getMessageSlot(type, Number(inviteMessageSlot.value));
+      if (result.ok) {
+        const slot = Number(inviteMessageSlot.value);
+        if (!cachedSlotsData[type]) {
+          cachedSlotsData[type] = Array(12).fill("").map((_, i) => ({ slot: i, message: "" }));
+        }
+        const data = result.slotData;
+        const message = typeof data === "string" ? data : data?.message || "";
+        cachedSlotsData[type][slot] = { slot, message };
+        
         const cooldowns = await window.sleepchat.getCooldowns();
         if (cooldowns) slotCooldowns = cooldowns;
         updateSlotPreviews();
@@ -588,13 +602,15 @@ sleepStatusDescription.addEventListener("input", () => {
   scheduleSettingsSave();
 });
 
-inviteMessageType.addEventListener("change", () => {
-  fetchSlots();
+inviteMessageType.addEventListener("change", async () => {
+  await fetchSlots();
+  updateApplyButtonState();
   scheduleSettingsSave();
 });
 
-inviteMessageSlot.addEventListener("change", () => {
-  fetchSlots();
+inviteMessageSlot.addEventListener("change", async () => {
+  await fetchSlots();
+  updateApplyButtonState();
   scheduleSettingsSave();
 });
 
@@ -628,6 +644,8 @@ applySlotButton.addEventListener("click", async () => {
       if (cooldowns) slotCooldowns = cooldowns;
       appendLog(`Updated Slot ${slot + 1}.`);
       updateSlotPreviews();
+    } else {
+      appendLog(`Error: Unexpected response format from API.`);
     }
   } catch (e) {
     appendLog(`Error: ${e.message}`);
@@ -789,7 +807,7 @@ async function loadCooldowns() {
   const isAuthenticated = await refreshAuthStatus();
 
   // 2. Load disk data in parallel
-  await Promise.all([
+  const [hasCache] = await Promise.all([
     loadCachedSlots(),
     loadWhitelist(),
     loadSettings(),
@@ -799,10 +817,9 @@ async function loadCooldowns() {
   // 3. Sync Engine state
   window.sleepchat.getStatus().then((s) => setStatus(s.sleepMode));
 
-  // 4. Background verification
+  // 4. Fetch currently selected slot only
+  // Background polling (60s interval) will sync the rest without hammering the API
   if (isAuthenticated) {
-    const hasCache = await loadCachedSlots();
-    if (!hasCache) await fetchAllSlotsSequentially();
-    else await fetchSlots();
+    await fetchSlots();
   }
 })();

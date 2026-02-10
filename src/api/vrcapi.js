@@ -264,7 +264,12 @@ async function updateMessageSlot(userId, type, slot, message) {
     },
   );
 
-  return json;
+  // Normalize response: VRChat may return an array of all 12 slots or a single slot object
+  if (Array.isArray(json)) {
+    return json;
+  }
+  // If single object, wrap in array for consistent handling
+  return [parseSlotResponse(json, slot)];
 }
 
 /**
