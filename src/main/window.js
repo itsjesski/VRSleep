@@ -4,7 +4,7 @@ const path = require("path");
 function createMainWindow(onCheckForUpdates) {
   const mainWindow = new BrowserWindow({
     width: 500,
-    height: 700,
+    height: 670,
     show: false,
     icon: path.join(__dirname, "..", "..", "images", "icon.ico"),
     backgroundColor: "#0f1115",

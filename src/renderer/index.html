@@ -32,18 +32,23 @@
                 --color-status-off-text: #a2a8b0;
                 --color-warning: #d9b86a;
             }
+            html,
             body {
+                background: #0f1115;
                 margin: 0;
-                padding: 16px;
+                padding: 12px;
                 display: flex;
                 flex-direction: column;
-                gap: 12px;
+                gap: 10px;
+                height: 100%;
+                box-sizing: border-box;
             }
             .header {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
                 margin-bottom: 4px;
+                margin-top: -4px;
             }
             .user-header {
                 display: flex;
@@ -156,6 +161,11 @@
                 background: var(--color-primary);
                 color: var(--color-primary-text);
                 cursor: pointer;
+            }
+            button:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+                pointer-events: none;
             }
             button.primary {
                 background: var(--color-primary);
@@ -431,7 +441,7 @@
         </div>
 
         <!-- Login View -->
-        <div id="login-view" class="view active">
+        <div id="login-view" class="view">
             <div class="card">
                 <strong>Login to VRChat</strong>
                 <div>
@@ -607,7 +617,8 @@
                                 </div>
                                 <button
                                     id="apply-slot"
-                                    class="primary btn-small"
+                                    class="secondary btn-small"
+                                    disabled
                                 >
                                     Apply
                                 </button>

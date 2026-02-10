@@ -57,10 +57,9 @@ function saveCachedSlots(slots) {
 
 function updateCachedSlot(type, slotIndex, message) {
   const data = getData();
-  if (data.slots[type]) {
-    data.slots[type][slotIndex] = message;
-    saveData(data);
-  }
+  if (!data.slots[type]) data.slots[type] = Array(12).fill("");
+  data.slots[type][slotIndex] = message;
+  saveData(data);
   return data.slots;
 }
 
@@ -68,10 +67,10 @@ function getSlotCooldowns() {
   return getData().cooldowns;
 }
 
-function updateSlotCooldown(type, slotIndex, unlockTimestamp) {
+function updateSlotCooldown(type, slotIndex, unlockTime) {
   const data = getData();
   if (!data.cooldowns[type]) data.cooldowns[type] = {};
-  data.cooldowns[type][slotIndex] = unlockTimestamp;
+  data.cooldowns[type][slotIndex] = unlockTime;
   saveData(data);
 }
 

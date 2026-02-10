@@ -1,4 +1,6 @@
 const { ipcMain } = require("electron");
+const vrcapi = require("../api/vrcapi");
+const messageSlotsStore = require("../stores/message-slots-store");
 
 function registerIpcHandlers({
   getWhitelist,
@@ -82,31 +84,97 @@ function registerIpcHandlers({
   });
 
   ipcMain.handle("messages:get-cached", () => {
-    const { getCachedSlots } = require("../stores/message-slots-store");
-    return getCachedSlots();
+    return messageSlotsStore.getCachedSlots();
+  });
+
+  ipcMain.handle("messages:get-slot", async (_event, { type, slot }) => {
+    console.log(`IPC: messages:get-slot type=${type}, slot=${slot}`);
+
+    try {
+      const authStatus = auth.getStatus();
+
+      if (!authStatus.authenticated || !authStatus.userId) {
+        throw new Error("Not authenticated");
+      }
+
+      const result = await vrcapi.getMessageSlot(authStatus.userId, type, slot);
+
+      // Update cache
+
+      const message =
+        typeof result === "string" ? result : result?.message || "";
+
+      messageSlotsStore.updateCachedSlot(type, slot, message);
+
+      // Update cooldown if present - only if it differs significantly from current local tracking
+
+      if (result && typeof result.remainingCooldownMinutes === "number") {
+        const currentCooldowns = messageSlotsStore.getSlotCooldowns();
+
+        const currentUnlockTime = currentCooldowns[type]
+          ? currentCooldowns[type][slot]
+          : 0;
+
+        const currentRemainingMins =
+          currentUnlockTime > Date.now()
+            ? Math.ceil((currentUnlockTime - Date.now()) / 60000)
+            : 0;
+
+        // Only update if there's a significant change (more than 1 min difference)
+
+        // or if we have no local record and API says there is one
+
+        if (
+          Math.abs(currentRemainingMins - result.remainingCooldownMinutes) >
+            1 ||
+          (currentRemainingMins === 0 && result.remainingCooldownMinutes > 0)
+        ) {
+          const unlockTime =
+            result.remainingCooldownMinutes > 0
+              ? Date.now() + result.remainingCooldownMinutes * 60 * 1000
+              : 0;
+
+          messageSlotsStore.updateSlotCooldown(type, slot, unlockTime);
+        }
+      }
+
+      return { ok: true, slotData: result };
+    } catch (error) {
+      console.error(`Error in messages:get-slot:`, error);
+
+      return { ok: false, error: error.message };
+    }
   });
 
   ipcMain.handle("messages:get-all", async (_event, type) => {
+    console.log(`IPC: messages:get-all type=${type}`);
     try {
       const authStatus = auth.getStatus();
       if (!authStatus.authenticated || !authStatus.userId) {
         throw new Error("Not authenticated");
       }
-      const { getMessageSlots } = require("../api/vrcapi");
-      const {
-        saveCachedSlots,
-        getCachedSlots,
-      } = require("../stores/message-slots-store");
 
-      const result = await getMessageSlots(authStatus.userId, type);
+      const result = await vrcapi.getMessageSlots(authStatus.userId, type);
 
       // Update cache
-      const cache = getCachedSlots();
+      const cache = messageSlotsStore.getCachedSlots();
       cache[type] = result.map((r) => r.message);
-      saveCachedSlots(cache);
+      messageSlotsStore.saveCachedSlots(cache);
+
+      // Update cooldowns if the API returns them in the bulk request
+      result.forEach((r) => {
+        if (typeof r.remainingCooldownMinutes === "number") {
+          const unlockTime =
+            r.remainingCooldownMinutes > 0
+              ? Date.now() + r.remainingCooldownMinutes * 60 * 1000
+              : 0;
+          messageSlotsStore.updateSlotCooldown(type, r.slot, unlockTime);
+        }
+      });
 
       return { ok: true, messages: result };
     } catch (error) {
+      console.error(`Error in messages:get-all:`, error);
       return { ok: false, error: error.message };
     }
   });
@@ -122,27 +190,45 @@ function registerIpcHandlers({
         if (!authStatus.authenticated || !authStatus.userId) {
           throw new Error("Not authenticated");
         }
-        const { updateMessageSlot } = require("../api/vrcapi");
-        const {
-          updateCachedSlot,
-          updateSlotCooldown,
-        } = require("../stores/message-slots-store");
 
-        console.log(`Calling VRC API to update slot...`);
-        const result = await updateMessageSlot(
+        const result = await vrcapi.updateMessageSlot(
           authStatus.userId,
           type,
           slot,
           message,
         );
-        console.log(`VRC API result:`, result);
 
-        // Update cache
-        updateCachedSlot(type, slot, message);
+        // result is an array of all 12 slots for this type
+        if (Array.isArray(result)) {
+          const cache = messageSlotsStore.getCachedSlots();
+          const cooldowns = messageSlotsStore.getSlotCooldowns();
+          cache[type] = result.map((s) => s.message);
+          messageSlotsStore.saveCachedSlots(cache);
 
-        // On success, VRChat locks the slot for 60 minutes
-        const unlockTime = Date.now() + 60 * 60 * 1000;
-        updateSlotCooldown(type, slot, unlockTime);
+          result.forEach((s) => {
+            if (typeof s.remainingCooldownMinutes === "number") {
+              const currentUnlockTime = cooldowns[type]
+                ? cooldowns[type][s.slot]
+                : 0;
+              const currentRemainingMins =
+                currentUnlockTime > Date.now()
+                  ? Math.ceil((currentUnlockTime - Date.now()) / 60000)
+                  : 0;
+
+              if (
+                Math.abs(currentRemainingMins - s.remainingCooldownMinutes) >
+                  1 ||
+                (currentRemainingMins === 0 && s.remainingCooldownMinutes > 0)
+              ) {
+                const unlockTime =
+                  s.remainingCooldownMinutes > 0
+                    ? Date.now() + s.remainingCooldownMinutes * 60 * 1000
+                    : 0;
+                messageSlotsStore.updateSlotCooldown(type, s.slot, unlockTime);
+              }
+            }
+          });
+        }
 
         return { ok: true, result };
       } catch (error) {

@@ -137,19 +137,24 @@ async function refreshAuthStatus() {
   try {
     const status = await window.sleepchat.getAuthStatus();
     if (status.authenticated) {
-      const userResult = await window.sleepchat.getCurrentUser();
-      if (userResult.ok && userResult.user) {
-        setUserInfo(userResult.user);
-      } else if (status.user) {
+      if (status.user) {
         setUserInfo(status.user);
       } else {
         setUserInfo({ id: status.userId, displayName: "Loading..." });
+        // Fetch full user data in background if only ID is known
+        window.sleepchat.getCurrentUser().then((userResult) => {
+          if (userResult.ok && userResult.user) setUserInfo(userResult.user);
+        });
       }
+      return true;
     } else {
       setUserInfo(null);
+      return false;
     }
   } catch (error) {
     console.error("Failed to refresh status:", error);
+    setUserInfo(null);
+    return false;
   }
 }
 
@@ -311,37 +316,22 @@ sleepStatusDescription.addEventListener("input", () => {
 });
 
 inviteMessageType.addEventListener("change", () => {
-  updateSlotPreviews();
+  fetchSlots();
   scheduleSettingsSave();
 });
 
 inviteMessageSlot.addEventListener("change", async () => {
-  const type = inviteMessageType.value;
-  const slot = Number(inviteMessageSlot.value);
-
-  // Show checking state in button
-  applySlotButton.disabled = true;
-  applySlotButton.textContent = "Checking...";
-
-  try {
-    const result = await window.sleepchat.getMessageSlots(type);
-    if (result.ok && Array.isArray(result.messages)) {
-      cachedSlotsData[type] = result.messages;
-    } else if (result.error) {
-      await setCooldown(type, slot, result.error);
-    }
-  } catch (error) {
-    await setCooldown(type, slot, error.message);
-  } finally {
-    updateSlotPreviews();
-    scheduleSettingsSave();
-  }
+  fetchSlots();
+  scheduleSettingsSave();
 });
 
 inviteSlotPreview.addEventListener("input", () => {
   const len = inviteSlotPreview.value.length;
   inviteCharCount.textContent = `${len}/64`;
   inviteCharCount.style.color = len >= 64 ? "#f87171" : "var(--color-muted)";
+
+  // Instantly update button state (duplicate check)
+  updateApplyButtonState();
 });
 
 let slotCooldowns = {
@@ -371,46 +361,84 @@ function updateApplyButtonState() {
   const type = inviteMessageType.value;
   const slot = Number(inviteMessageSlot.value);
 
-  // Don't interrupt "Applying..." or "Checking..." states
+  // Don't interrupt "Applying...", "Checking...", or "Loading..." states
   if (
-    applySlotButton.textContent === "Applying..." ||
-    applySlotButton.textContent === "Checking..."
+    ["Applying...", "Checking...", "Loading..."].includes(
+      applySlotButton.textContent,
+    )
   )
     return;
 
-  const unlockTimestamp = slotCooldowns[type]
-    ? slotCooldowns[type][slot]
-    : null;
-  const now = Date.now();
+  const unlockTime =
+    slotCooldowns[type] && typeof slotCooldowns[type][slot] === "number"
+      ? slotCooldowns[type][slot]
+      : 0;
 
-  if (unlockTimestamp && unlockTimestamp > now) {
-    const secondsLeft = Math.ceil((unlockTimestamp - now) / 1000);
-    const mins = Math.floor(secondsLeft / 60);
-    const secs = secondsLeft % 60;
+  const now = Date.now();
+  const currentSlotData = cachedSlotsData[type]
+    ? cachedSlotsData[type][slot]
+    : null;
+  const currentVrcMessage = currentSlotData
+    ? typeof currentSlotData.message === "string"
+      ? currentSlotData.message
+      : ""
+    : null; // Use null to indicate data is missing/loading
+
+  // If we don't have the message yet (null), or it matches, it stays disabled
+  const isDuplicate =
+    currentVrcMessage === null || inviteSlotPreview.value === currentVrcMessage;
+
+  if (unlockTime > now) {
+    const remainingSeconds = Math.ceil((unlockTime - now) / 1000);
+    const mins = Math.floor(remainingSeconds / 60);
+    const secs = remainingSeconds % 60;
 
     applySlotButton.disabled = true;
     applySlotButton.textContent = `${mins}:${secs.toString().padStart(2, "0")}`;
     applySlotButton.classList.add("countdown-mode");
     applySlotButton.classList.remove("primary");
+  } else if (isDuplicate) {
+    applySlotButton.disabled = true;
+    applySlotButton.textContent = "Apply";
+    applySlotButton.classList.remove("countdown-mode");
+    applySlotButton.classList.remove("primary");
+    applySlotButton.classList.add("secondary");
   } else {
-    // Reset if it's currently in countdown mode or disabled (but NOT during checking)
-    if (
-      applySlotButton.classList.contains("countdown-mode") ||
-      (applySlotButton.disabled &&
-        !["Applying...", "Checking...", "Loading..."].includes(
-          applySlotButton.textContent,
-        ))
-    ) {
-      applySlotButton.disabled = false;
-      applySlotButton.textContent = "Apply";
-      applySlotButton.classList.remove("countdown-mode");
-      applySlotButton.classList.add("primary");
-    }
+    applySlotButton.disabled = false;
+    applySlotButton.textContent = "Apply";
+    applySlotButton.classList.remove("countdown-mode");
+    applySlotButton.classList.remove("secondary");
+    applySlotButton.classList.add("primary");
   }
 }
 
-// Update the cooldown timer every second
+// Update the countdown timer every second for smooth UI
 setInterval(updateApplyButtonState, 1000);
+
+let isApplying = false;
+
+// Background poll every 60 seconds
+setInterval(async () => {
+  if (currentUser && !isApplying) {
+    const type = inviteMessageType.value;
+    console.log(`Background polling ${type} slots...`);
+
+    try {
+      const result = await window.sleepchat.getMessageSlots(type);
+      if (result.ok && Array.isArray(result.messages)) {
+        cachedSlotsData[type] = result.messages;
+
+        // Refresh cooldowns from store
+        const cooldowns = await window.sleepchat.getCooldowns();
+        if (cooldowns) slotCooldowns = cooldowns;
+
+        updateSlotPreviews();
+      }
+    } catch (error) {
+      console.error(`Poll failed for ${type}:`, error);
+    }
+  }
+}, 60000);
 
 applySlotButton.addEventListener("click", async () => {
   const type = inviteMessageType.value;
@@ -418,6 +446,7 @@ applySlotButton.addEventListener("click", async () => {
   const message = inviteSlotPreview.value;
 
   // Immediate UI feedback
+  isApplying = true;
   applySlotButton.disabled = true;
   applySlotButton.textContent = "Applying...";
   applySlotButton.classList.add("countdown-mode");
@@ -429,37 +458,35 @@ applySlotButton.addEventListener("click", async () => {
       slot,
       message,
     );
+
     if (!result.ok) {
-      await setCooldown(type, slot, result.error);
       throw new Error(result.error);
     }
 
-    // Update local cache
-    if (!cachedSlotsData[type]) cachedSlotsData[type] = [];
-    cachedSlotsData[type][slot] = { slot, message };
+    // result.result is an array of all 12 slots for this type
+    const slots = result.result;
+    if (Array.isArray(slots)) {
+      if (!cachedSlotsData[type]) cachedSlotsData[type] = [];
 
-    const unlockTimeStr = new Date(
-      Date.now() + 60 * 60 * 1000,
-    ).toLocaleTimeString();
-    appendLog(
-      `Updated ${type} Slot ${slot + 1}. Locked until ${unlockTimeStr}.`,
-    );
+      slots.forEach((s) => {
+        // Update both message and slot mapping
+        cachedSlotsData[type][s.slot] = { slot: s.slot, message: s.message };
+      });
 
-    // Store cooldown for this specific slot (default 60m on success)
-    if (!slotCooldowns[type]) slotCooldowns[type] = {};
-    const unlockTimestamp = Date.now() + 60 * 60 * 1000;
-    slotCooldowns[type][slot] = unlockTimestamp;
+      // Refresh cooldowns from store to get newest unlockTime (handled by IPC in main)
+      const cooldowns = await window.sleepchat.getCooldowns();
+      if (cooldowns) slotCooldowns = cooldowns;
 
-    // Set persistent cooldown
-    await window.sleepchat.setCooldown(type, slot, unlockTimestamp);
-    updateApplyButtonState();
+      appendLog(`Updated ${type} Slot ${slot + 1}.`);
+      updateSlotPreviews();
+    }
   } catch (error) {
     appendLog(`Failed to update slot: ${error.message}`);
-    await setCooldown(type, slot, error.message);
+  } finally {
+    isApplying = false;
     updateApplyButtonState();
   }
 });
-
 loginButton.addEventListener("click", async () => {
   setAuthHint("");
   const username = usernameInput.value.trim();
@@ -488,10 +515,22 @@ loginButton.addEventListener("click", async () => {
       passwordInput.value = "";
       if (result.result?.user) {
         setUserInfo(result.result.user);
-        await fetchSlots();
+        const hasCachedContent = await loadCachedSlots();
+        if (!hasCachedContent) {
+          await fetchAllSlotsSequentially();
+        } else {
+          await fetchSlots();
+        }
       } else {
         await refreshAuthStatus();
-        if (currentUser) await fetchSlots();
+        if (currentUser) {
+          const hasCachedContent = await loadCachedSlots();
+          if (!hasCachedContent) {
+            await fetchAllSlotsSequentially();
+          } else {
+            await fetchSlots();
+          }
+        }
       }
       setAuthHint("");
     }
@@ -534,10 +573,22 @@ modalSubmit.addEventListener("click", async () => {
     passwordInput.value = "";
     if (result.user) {
       setUserInfo(result.user);
-      await fetchSlots();
+      const hasCachedContent = await loadCachedSlots();
+      if (!hasCachedContent) {
+        await fetchAllSlotsSequentially();
+      } else {
+        await fetchSlots();
+      }
     } else {
       await refreshAuthStatus();
-      if (currentUser) await fetchSlots();
+      if (currentUser) {
+        const hasCachedContent = await loadCachedSlots();
+        if (!hasCachedContent) {
+          await fetchAllSlotsSequentially();
+        } else {
+          await fetchSlots();
+        }
+      }
     }
     setAuthHint("");
   } catch (error) {
@@ -769,25 +820,58 @@ let cachedSlotsData = {
   requestResponse: [],
 };
 
-async function fetchSlots() {
-  console.log("Fetching message slots...");
-  try {
-    // Initial fetch of everything
-    const types = ["message", "response", "request", "requestResponse"];
-    const results = await Promise.all(
-      types.map((type) => window.sleepchat.getMessageSlots(type)),
-    );
+async function fetchAllSlotsSequentially() {
+  console.log("Populating all message slots...");
+  const types = ["message", "response", "request", "requestResponse"];
 
-    types.forEach((type, index) => {
-      const result = results[index];
+  for (const type of types) {
+    try {
+      const result = await window.sleepchat.getMessageSlots(type);
       if (result.ok && Array.isArray(result.messages)) {
         cachedSlotsData[type] = result.messages;
       }
-    });
+      // Small pause between types to be safe
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    } catch (error) {
+      console.error(`Failed to populate ${type} slots:`, error);
+    }
+  }
+  updateSlotPreviews();
+}
 
-    updateSlotPreviews();
+async function fetchSlots() {
+  const type = inviteMessageType.value;
+  const slot = Number(inviteMessageSlot.value);
+
+  console.log(`Fetching latest for slot: type=${type}, slot=${slot}`);
+
+  try {
+    const result = await window.sleepchat.getMessageSlot(type, slot);
+
+    if (result.ok) {
+      const data = result.slotData;
+
+      const message = typeof data === "string" ? data : data?.message || "";
+
+      if (!cachedSlotsData[type])
+        cachedSlotsData[type] = Array(12)
+          .fill("")
+          .map((_, i) => ({ slot: i, message: "" }));
+
+      cachedSlotsData[type][slot] = { slot, message: message };
+
+      // Refresh cooldowns from store to get newest unlockTime (handled by IPC in main)
+      const cooldowns = await window.sleepchat.getCooldowns();
+      if (cooldowns) slotCooldowns = cooldowns;
+
+      updateSlotPreviews();
+    } else if (result.error) {
+      console.error("Slot fetch error:", result.error);
+    }
   } catch (error) {
-    console.error("Failed to fetch slots:", error);
+    console.error("Failed to fetch slot:", error);
+  } finally {
+    updateApplyButtonState();
   }
 }
 
@@ -823,14 +907,56 @@ async function loadCooldowns() {
   }
 }
 
+async function loadCachedSlots() {
+  try {
+    const cached = await window.sleepchat.getCachedMessageSlots();
+    if (cached) {
+      // The cache stores just strings, but the UI expects { slot, message }
+      let hasContent = false;
+      Object.keys(cached).forEach((type) => {
+        if (Array.isArray(cached[type])) {
+          cachedSlotsData[type] = cached[type].map((msg, i) => {
+            if (msg) hasContent = true;
+            return {
+              slot: i,
+              message: msg,
+            };
+          });
+        }
+      });
+      updateSlotPreviews();
+      return hasContent;
+    }
+  } catch (error) {
+    console.error("Failed to load cached slots:", error);
+  }
+  return false;
+}
+
 (async () => {
-  await loadWhitelist();
-  await loadSettings();
-  await loadCooldowns();
-  const status = await window.sleepchat.getStatus();
-  setStatus(status.sleepMode);
-  await refreshAuthStatus();
-  if (currentUser) {
-    await fetchSlots();
+  // 1. Instantly check local auth status and show the view
+  const isAuthenticated = await refreshAuthStatus();
+
+  // 2. Load settings/whitelist/cache from local disk in parallel
+  const [hasCachedContent] = await Promise.all([
+    loadCachedSlots(),
+    loadWhitelist(),
+    loadSettings(),
+    loadCooldowns(),
+  ]);
+
+  // 3. Sync Sleep Mode status from main process
+  window.sleepchat.getStatus().then((status) => {
+    setStatus(status.sleepMode);
+  });
+
+  // 4. Verification/Refresh in the background if logged in
+  if (isAuthenticated) {
+    // Refresh slots if needed
+    if (!hasCachedContent) {
+      await fetchAllSlotsSequentially();
+    } else {
+      await fetchSlots();
+    }
   }
 })();

@@ -15,17 +15,14 @@ function getHeaders() {
 }
 
 async function fetchInvites() {
-  const url = buildUrl("/auth/user/notifications?n=50&offset=0");
-  const response = await fetch(url, {
-    method: "GET",
-    headers: getHeaders(),
-  });
+  const { json: data } = await requestJson(
+    "/auth/user/notifications?n=50&offset=0",
+    {
+      method: "GET",
+      headers: getHeaders(),
+    },
+  );
 
-  if (!response.ok) {
-    throw new Error(`Notification fetch failed (${response.status})`);
-  }
-
-  const data = await response.json();
   if (!Array.isArray(data)) return [];
 
   // Filter for requestInvite notifications (when someone asks you to invite them)
@@ -51,17 +48,11 @@ async function sendInvite(
   if (!userId) throw new Error("Missing user id");
 
   // Get current user location
-  const userUrl = buildUrl("/auth/user");
-  const userResponse = await fetch(userUrl, {
+  const { json: userData } = await requestJson("/auth/user", {
     method: "GET",
     headers: getHeaders(),
   });
 
-  if (!userResponse.ok) {
-    throw new Error(`Failed to get user location (${userResponse.status})`);
-  }
-
-  const userData = await userResponse.json();
   const location = userData.location || "offline";
   const presenceInstance = userData.presence?.instance;
   const presenceWorld = userData.presence?.world;
@@ -81,7 +72,6 @@ async function sendInvite(
     throw new Error("Cannot send invite: No valid world location found.");
   }
 
-  const url = buildUrl(`/invite/${encodeURIComponent(userId)}`);
   const body = {
     instanceId: inviteLocation,
   };
@@ -93,36 +83,27 @@ async function sendInvite(
     body.messageType = messageType;
   }
 
-  const response = await fetch(url, {
+  const { json } = await requestJson(`/invite/${encodeURIComponent(userId)}`, {
     method: "POST",
     headers: getHeaders(),
     body: JSON.stringify(body),
   });
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Invite send failed (${response.status})`);
-  }
-
-  return await response.json();
+  return json;
 }
 
 async function deleteNotification(notificationId) {
   if (!notificationId) throw new Error("Missing notification id");
 
-  const url = buildUrl(
+  const { json } = await requestJson(
     `/auth/user/notifications/${encodeURIComponent(notificationId)}/hide`,
+    {
+      method: "PUT",
+      headers: getHeaders(),
+    },
   );
-  const response = await fetch(url, {
-    method: "PUT",
-    headers: getHeaders(),
-  });
 
-  if (!response.ok) {
-    throw new Error(`Notification delete failed (${response.status})`);
-  }
-
-  return await response.json();
+  return json;
 }
 
 async function getFriends() {
@@ -133,17 +114,14 @@ async function getFriends() {
 
   // Fetch all friends with pagination (don't include offline param to get ALL friends)
   while (hasMore) {
-    const url = buildUrl(`/auth/user/friends?n=${limit}&offset=${offset}`);
-    const response = await fetch(url, {
-      method: "GET",
-      headers: getHeaders(),
-    });
+    const { json: friends } = await requestJson(
+      `/auth/user/friends?n=${limit}&offset=${offset}`,
+      {
+        method: "GET",
+        headers: getHeaders(),
+      },
+    );
 
-    if (!response.ok) {
-      throw new Error(`Friends fetch failed (${response.status})`);
-    }
-
-    const friends = await response.json();
     if (!Array.isArray(friends) || friends.length === 0) {
       hasMore = false;
       break;
@@ -171,23 +149,16 @@ async function getFriends() {
 }
 
 async function getCurrentUser() {
-  const url = buildUrl("/auth/user");
-  const response = await fetch(url, {
+  const { json } = await requestJson("/auth/user", {
     method: "GET",
     headers: getHeaders(),
   });
-
-  if (!response.ok) {
-    throw new Error(`Failed to get current user (${response.status})`);
-  }
-
-  return await response.json();
+  return json;
 }
 
 async function updateStatus(userId, status, statusDescription) {
   if (!userId) throw new Error("Missing user id");
-  const url = buildUrl(`/users/${encodeURIComponent(userId)}`);
-  const response = await fetch(url, {
+  const { json } = await requestJson(`/users/${encodeURIComponent(userId)}`, {
     method: "PUT",
     headers: getHeaders(),
     body: JSON.stringify({
@@ -196,41 +167,79 @@ async function updateStatus(userId, status, statusDescription) {
     }),
   });
 
-  if (!response.ok) {
-    throw new Error(`Failed to update status (${response.status})`);
+  return json;
+}
+
+async function getMessageSlot(userId, type, slot) {
+  if (!userId) throw new Error("Missing user id");
+  const path = `/message/${encodeURIComponent(userId)}/${encodeURIComponent(type)}/${encodeURIComponent(slot)}`;
+  const { json } = await requestJson(path, {
+    method: "GET",
+    headers: getHeaders(),
+  });
+
+  // If the API returns an array, find the specific slot object
+  if (Array.isArray(json)) {
+    return (
+      json.find((s) => s.slot === Number(slot)) || {
+        slot,
+        message: "",
+        remainingCooldownMinutes: 0,
+      }
+    );
   }
 
-  return await response.json();
+  return json;
 }
 
 async function getMessageSlots(userId, type = "requestResponse") {
   if (!userId) throw new Error("Missing user id");
 
-  const slots = [];
-  const promises = [];
+  const results = [];
+  const batchSize = 3;
 
-  // VRChat has 12 slots (0-11)
-  for (let i = 0; i < 12; i++) {
-    const url = buildUrl(
-      `/message/${encodeURIComponent(userId)}/${encodeURIComponent(type)}/${i}`,
-    );
-    promises.push(
-      fetch(url, {
-        method: "GET",
-        headers: getHeaders(),
-      })
-        .then(async (res) => {
-          if (!res.ok) return { slot: i, message: "" };
-          const data = await res.json();
-          // The API might return the message string directly or as { message: "..." }
-          const msg = typeof data === "string" ? data : data?.message || "";
-          return { slot: i, message: msg };
+  for (let i = 0; i < 12; i += batchSize) {
+    const batchPromises = [];
+    for (let j = i; j < i + batchSize && j < 12; j++) {
+      const path = `/message/${encodeURIComponent(userId)}/${encodeURIComponent(type)}/${j}`;
+      batchPromises.push(
+        requestJson(path, {
+          method: "GET",
+          headers: getHeaders(),
         })
-        .catch(() => ({ slot: i, message: "" })),
-    );
+          .then(({ json }) => {
+            // json could be an object {message, slot, remainingCooldownMinutes, ...}
+            // or an array of slot objects if we hit the base endpoint
+            if (Array.isArray(json)) {
+              return (
+                json.find((s) => s.slot === j) || {
+                  slot: j,
+                  message: "",
+                  remainingCooldownMinutes: 0,
+                }
+              );
+            }
+            return {
+              slot: j,
+              message: json?.message || (typeof json === "string" ? json : ""),
+              remainingCooldownMinutes: json?.remainingCooldownMinutes || 0,
+            };
+          })
+          .catch((err) => {
+            console.error(`Error fetching slot ${j} for ${type}:`, err.message);
+            return { slot: j, message: "", remainingCooldownMinutes: 0 };
+          }),
+      );
+    }
+    const batchResults = await Promise.all(batchPromises);
+    results.push(...batchResults);
+
+    // Small delay between batches
+    if (i + batchSize < 12) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
   }
 
-  const results = await Promise.all(promises);
   // Ensure we return a consistent format: [{ slot: 0, message: "..." }, ...]
   return results
     .sort((a, b) => a.slot - b.slot)
@@ -268,6 +277,7 @@ module.exports = {
   getFriends,
   getCurrentUser,
   updateStatus,
+  getMessageSlot,
   getMessageSlots,
   updateMessageSlot,
 };

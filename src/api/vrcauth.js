@@ -112,20 +112,29 @@ function isReadyForApi() {
 async function requestJson(path, options = {}) {
   const url = buildUrl(path);
   console.log("[API] Fetching:", url);
-  const response = await fetch(url, {
-    ...options,
-    credentials: "include",
-  });
-  const text = await response.text();
-  console.log("[API] Response status:", response.status);
-  const json = text ? JSON.parse(text) : null;
-  if (!response.ok) {
-    console.log("[API] Response text:", text.substring(0, 1000));
-    const message =
-      json?.error?.message || json?.message || `HTTP ${response.status}`;
-    throw new Error(message);
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      credentials: "include",
+      signal: controller.signal,
+    });
+    const text = await response.text();
+    console.log("[API] Response status:", response.status);
+    const json = text ? JSON.parse(text) : null;
+    if (!response.ok) {
+      console.log("[API] Response text:", text.substring(0, 1000));
+      const message =
+        json?.error?.message || json?.message || `HTTP ${response.status}`;
+      throw new Error(message);
+    }
+    return { response, json };
+  } finally {
+    clearTimeout(timeoutId);
   }
-  return { response, json };
 }
 
 async function getConfig() {
