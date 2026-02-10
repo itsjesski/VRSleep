@@ -203,7 +203,9 @@ tabWhitelist.addEventListener("click", () => {
 tabCustomizations.addEventListener("click", () => {
   setActiveTab("customizations");
   if (currentUser) {
-    fetchSlots();
+    fetchSlots().then(() => {
+      updateApplyButtonState();
+    });
   }
 });
 
@@ -313,9 +315,27 @@ inviteMessageType.addEventListener("change", () => {
   scheduleSettingsSave();
 });
 
-inviteMessageSlot.addEventListener("change", () => {
-  updateSlotPreviews();
-  scheduleSettingsSave();
+inviteMessageSlot.addEventListener("change", async () => {
+  const type = inviteMessageType.value;
+  const slot = Number(inviteMessageSlot.value);
+
+  // Show checking state in button
+  applySlotButton.disabled = true;
+  applySlotButton.textContent = "Checking...";
+
+  try {
+    const result = await window.sleepchat.getMessageSlots(type);
+    if (result.ok && Array.isArray(result.messages)) {
+      cachedSlotsData[type] = result.messages;
+    } else if (result.error) {
+      await setCooldown(type, slot, result.error);
+    }
+  } catch (error) {
+    await setCooldown(type, slot, error.message);
+  } finally {
+    updateSlotPreviews();
+    scheduleSettingsSave();
+  }
 });
 
 inviteSlotPreview.addEventListener("input", () => {
@@ -323,6 +343,74 @@ inviteSlotPreview.addEventListener("input", () => {
   inviteCharCount.textContent = `${len}/64`;
   inviteCharCount.style.color = len >= 64 ? "#f87171" : "var(--color-muted)";
 });
+
+let slotCooldowns = {
+  message: {},
+  response: {},
+  request: {},
+  requestResponse: {},
+};
+
+async function setCooldown(type, slot, errorMessage) {
+  if (!errorMessage) return false;
+  const match = errorMessage.match(/wait (\d+) more minute/i);
+  if (match) {
+    const mins = parseInt(match[1], 10);
+    if (!slotCooldowns[type]) slotCooldowns[type] = {};
+    const unlockTimestamp = Date.now() + mins * 60 * 1000;
+    slotCooldowns[type][slot] = unlockTimestamp;
+
+    // Persist to store
+    await window.sleepchat.setCooldown(type, slot, unlockTimestamp);
+    return true;
+  }
+  return false;
+}
+
+function updateApplyButtonState() {
+  const type = inviteMessageType.value;
+  const slot = Number(inviteMessageSlot.value);
+
+  // Don't interrupt "Applying..." or "Checking..." states
+  if (
+    applySlotButton.textContent === "Applying..." ||
+    applySlotButton.textContent === "Checking..."
+  )
+    return;
+
+  const unlockTimestamp = slotCooldowns[type]
+    ? slotCooldowns[type][slot]
+    : null;
+  const now = Date.now();
+
+  if (unlockTimestamp && unlockTimestamp > now) {
+    const secondsLeft = Math.ceil((unlockTimestamp - now) / 1000);
+    const mins = Math.floor(secondsLeft / 60);
+    const secs = secondsLeft % 60;
+
+    applySlotButton.disabled = true;
+    applySlotButton.textContent = `${mins}:${secs.toString().padStart(2, "0")}`;
+    applySlotButton.classList.add("countdown-mode");
+    applySlotButton.classList.remove("primary");
+  } else {
+    // Reset if it's currently in countdown mode or disabled (but NOT during checking)
+    if (
+      applySlotButton.classList.contains("countdown-mode") ||
+      (applySlotButton.disabled &&
+        !["Applying...", "Checking...", "Loading..."].includes(
+          applySlotButton.textContent,
+        ))
+    ) {
+      applySlotButton.disabled = false;
+      applySlotButton.textContent = "Apply";
+      applySlotButton.classList.remove("countdown-mode");
+      applySlotButton.classList.add("primary");
+    }
+  }
+}
+
+// Update the cooldown timer every second
+setInterval(updateApplyButtonState, 1000);
 
 applySlotButton.addEventListener("click", async () => {
   const type = inviteMessageType.value;
@@ -341,57 +429,36 @@ applySlotButton.addEventListener("click", async () => {
       slot,
       message,
     );
-    if (!result.ok) throw new Error(result.error);
+    if (!result.ok) {
+      await setCooldown(type, slot, result.error);
+      throw new Error(result.error);
+    }
 
     // Update local cache
     if (!cachedSlotsData[type]) cachedSlotsData[type] = [];
     cachedSlotsData[type][slot] = { slot, message };
 
-    const unlockTime = new Date(
+    const unlockTimeStr = new Date(
       Date.now() + 60 * 60 * 1000,
     ).toLocaleTimeString();
-    appendLog(`Updated ${type} Slot ${slot + 1}. Locked until ${unlockTime}.`);
+    appendLog(
+      `Updated ${type} Slot ${slot + 1}. Locked until ${unlockTimeStr}.`,
+    );
 
-    // Start a cooldown timer on the button
-    startCooldown(3600);
+    // Store cooldown for this specific slot (default 60m on success)
+    if (!slotCooldowns[type]) slotCooldowns[type] = {};
+    const unlockTimestamp = Date.now() + 60 * 60 * 1000;
+    slotCooldowns[type][slot] = unlockTimestamp;
+
+    // Set persistent cooldown
+    await window.sleepchat.setCooldown(type, slot, unlockTimestamp);
+    updateApplyButtonState();
   } catch (error) {
     appendLog(`Failed to update slot: ${error.message}`);
-
-    // If it's a rate limit error, try to extract minutes
-    const match = error.message.match(/wait (\d+) more minute/i);
-    if (match) {
-      const mins = parseInt(match[1], 10);
-      startCooldown(mins * 60);
-    } else {
-      applySlotButton.disabled = false;
-      applySlotButton.textContent = "Apply";
-      applySlotButton.classList.remove("countdown-mode");
-      applySlotButton.classList.add("primary");
-    }
+    await setCooldown(type, slot, error.message);
+    updateApplyButtonState();
   }
 });
-
-function startCooldown(seconds) {
-  let secondsLeft = seconds;
-  applySlotButton.disabled = true;
-  applySlotButton.classList.add("countdown-mode");
-  applySlotButton.classList.remove("primary");
-
-  const interval = setInterval(() => {
-    secondsLeft--;
-    if (secondsLeft <= 0) {
-      clearInterval(interval);
-      applySlotButton.disabled = false;
-      applySlotButton.textContent = "Apply";
-      applySlotButton.classList.remove("countdown-mode");
-      applySlotButton.classList.add("primary");
-    } else {
-      const mins = Math.floor(secondsLeft / 60);
-      const secs = secondsLeft % 60;
-      applySlotButton.textContent = `${mins}:${secs.toString().padStart(2, "0")}`;
-    }
-  }, 1000);
-}
 
 loginButton.addEventListener("click", async () => {
   setAuthHint("");
@@ -740,11 +807,26 @@ function updateSlotPreviews() {
   const len = inviteSlotPreview.value.length;
   inviteCharCount.textContent = `${len}/64`;
   inviteCharCount.style.color = len >= 64 ? "#f87171" : "var(--color-muted)";
+
+  // Update button state (cooldown or apply)
+  updateApplyButtonState();
+}
+
+async function loadCooldowns() {
+  try {
+    const cooldowns = await window.sleepchat.getCooldowns();
+    if (cooldowns) {
+      slotCooldowns = cooldowns;
+    }
+  } catch (error) {
+    console.error("Failed to load cooldowns:", error);
+  }
 }
 
 (async () => {
   await loadWhitelist();
   await loadSettings();
+  await loadCooldowns();
   const status = await window.sleepchat.getStatus();
   setStatus(status.sleepMode);
   await refreshAuthStatus();

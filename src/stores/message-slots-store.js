@@ -12,39 +12,73 @@ const DEFAULT_SLOTS = {
   requestResponse: Array(12).fill(""),
 };
 
+const DEFAULT_COOLDOWNS = {
+  message: {},
+  response: {},
+  request: {},
+  requestResponse: {},
+};
+
 function getFilePath() {
   const folder = app.getPath("userData");
   return path.join(folder, FILE_NAME);
 }
 
-function getCachedSlots() {
+function getData() {
   const filePath = getFilePath();
-  if (!fs.existsSync(filePath)) return { ...DEFAULT_SLOTS };
+  if (!fs.existsSync(filePath))
+    return { slots: DEFAULT_SLOTS, cooldowns: DEFAULT_COOLDOWNS };
   try {
     const raw = fs.readFileSync(filePath, "utf8");
     const data = JSON.parse(raw);
-    return { ...DEFAULT_SLOTS, ...data };
+    return {
+      slots: data.slots || DEFAULT_SLOTS,
+      cooldowns: data.cooldowns || DEFAULT_COOLDOWNS,
+    };
   } catch {
-    return { ...DEFAULT_SLOTS };
+    return { slots: DEFAULT_SLOTS, cooldowns: DEFAULT_COOLDOWNS };
   }
+}
+
+function saveData(data) {
+  const filePath = getFilePath();
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+}
+
+function getCachedSlots() {
+  return getData().slots;
 }
 
 function saveCachedSlots(slots) {
-  const filePath = getFilePath();
-  fs.writeFileSync(filePath, JSON.stringify(slots, null, 2));
+  const data = getData();
+  data.slots = slots;
+  saveData(data);
 }
 
 function updateCachedSlot(type, slotIndex, message) {
-  const slots = getCachedSlots();
-  if (slots[type]) {
-    slots[type][slotIndex] = message;
-    saveCachedSlots(slots);
+  const data = getData();
+  if (data.slots[type]) {
+    data.slots[type][slotIndex] = message;
+    saveData(data);
   }
-  return slots;
+  return data.slots;
+}
+
+function getSlotCooldowns() {
+  return getData().cooldowns;
+}
+
+function updateSlotCooldown(type, slotIndex, unlockTimestamp) {
+  const data = getData();
+  if (!data.cooldowns[type]) data.cooldowns[type] = {};
+  data.cooldowns[type][slotIndex] = unlockTimestamp;
+  saveData(data);
 }
 
 module.exports = {
   getCachedSlots,
   saveCachedSlots,
   updateCachedSlot,
+  getSlotCooldowns,
+  updateSlotCooldown,
 };

@@ -21,6 +21,13 @@ contextBridge.exposeInMainWorld("sleepchat", {
   getMessageSlots: (type) => ipcRenderer.invoke("messages:get-all", type),
   updateMessageSlot: (type, slot, message) =>
     ipcRenderer.invoke("messages:update-slot", { type, slot, message }),
+  getCooldowns: () => ipcRenderer.invoke("messages:get-cooldowns"),
+  setCooldown: (type, slot, unlockTimestamp) =>
+    ipcRenderer.invoke("messages:set-cooldown", {
+      type,
+      slot,
+      unlockTimestamp,
+    }),
   onLog: (handler) => {
     ipcRenderer.removeAllListeners("log");
     ipcRenderer.on("log", (_event, message) => handler(message));

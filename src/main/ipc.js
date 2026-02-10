@@ -123,7 +123,10 @@ function registerIpcHandlers({
           throw new Error("Not authenticated");
         }
         const { updateMessageSlot } = require("../api/vrcapi");
-        const { updateCachedSlot } = require("../stores/message-slots-store");
+        const {
+          updateCachedSlot,
+          updateSlotCooldown,
+        } = require("../stores/message-slots-store");
 
         console.log(`Calling VRC API to update slot...`);
         const result = await updateMessageSlot(
@@ -137,11 +140,29 @@ function registerIpcHandlers({
         // Update cache
         updateCachedSlot(type, slot, message);
 
+        // On success, VRChat locks the slot for 60 minutes
+        const unlockTime = Date.now() + 60 * 60 * 1000;
+        updateSlotCooldown(type, slot, unlockTime);
+
         return { ok: true, result };
       } catch (error) {
         console.error(`Error in messages:update-slot:`, error);
         return { ok: false, error: error.message };
       }
+    },
+  );
+
+  ipcMain.handle("messages:get-cooldowns", async () => {
+    const { getSlotCooldowns } = require("../stores/message-slots-store");
+    return getSlotCooldowns();
+  });
+
+  ipcMain.handle(
+    "messages:set-cooldown",
+    async (_event, { type, slot, unlockTimestamp }) => {
+      const { updateSlotCooldown } = require("../stores/message-slots-store");
+      updateSlotCooldown(type, slot, unlockTimestamp);
+      return { ok: true };
     },
   );
 }

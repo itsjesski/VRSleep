@@ -1,517 +1,682 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.vrchat.cloud; font-src 'self' data:;"
-    />
-    <title>VRSleep</title>
-    <style>
-      :root {
-        color-scheme: dark;
-        font-family: "Segoe UI", system-ui, sans-serif;
-        background: #0f1115;
-        color: #e5e7eb;
-        --color-bg: #111315;
-        --color-card: #16181b;
-        --color-border: #262a2e;
-        --color-text: #e3e5e8;
-        --color-muted: #a2a8b0;
-        --color-input-bg: #14171a;
-        --color-primary: #2f7d5e;
-        --color-primary-text: #f5f7f9;
-        --color-secondary: #2a2f34;
-        --color-secondary-text: #d8dde3;
-        --color-ghost-border: #3a4147;
-        --color-ghost-text: #c8d0d8;
-        --color-status-on-bg: #1e3a2f;
-        --color-status-on-text: #a9e5c8;
-        --color-status-off-bg: #24282c;
-        --color-status-off-text: #a2a8b0;
-        --color-warning: #d9b86a;
-      }
-      body {
-        margin: 0;
-        padding: 0 16px 16px 16px;
-      }
-      .header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 15px;
-        padding-top: 16px;
-      }
-      .user-header {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-      }
-      .user-name {
-        font-size: 15px;
-        font-weight: 500;
-        color: #e5e7eb;
-        line-height: 28px;
-      }
-      .user-header button {
-        margin: 0;
-        padding: 0 12px;
-        font-size: 12px;
-        height: 28px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      h1 {
-        font-size: 18px;
-        margin: 0;
-      }
-      .card {
-        background: var(--color-card);
-        border: 1px solid var(--color-border);
-        border-radius: 10px;
-        padding: 12px;
-        margin-bottom: 12px;
-      }
-      .card:first-of-type {
-        margin-top: 0;
-      }
-      .card.tabs-container {
-        padding-top: 0;
-      }
-      .view {
-        display: none;
-      }
-      .view.active {
-        display: block;
-      }
-      label {
-        display: block;
-        font-size: 12px;
-        margin-bottom: 6px;
-        color: var(--color-muted);
-      }
-      input {
-        width: 100%;
-        background: var(--color-input-bg);
-        border: 1px solid var(--color-border);
-        color: var(--color-text);
-        border-radius: 8px;
-        padding: 8px 10px;
-        margin-bottom: 8px;
-        box-sizing: border-box;
-      }
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta
+            http-equiv="Content-Security-Policy"
+            content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.vrchat.cloud; font-src 'self' data:;"
+        />
+        <title>VRSleep</title>
+        <style>
+            :root {
+                color-scheme: dark;
+                font-family: "Segoe UI", system-ui, sans-serif;
+                background: #0f1115;
+                color: #e5e7eb;
+                --color-bg: #111315;
+                --color-card: #16181b;
+                --color-border: #262a2e;
+                --color-text: #e3e5e8;
+                --color-muted: #a2a8b0;
+                --color-input-bg: #14171a;
+                --color-primary: #2f7d5e;
+                --color-primary-text: #f5f7f9;
+                --color-secondary: #2a2f34;
+                --color-secondary-text: #d8dde3;
+                --color-ghost-border: #3a4147;
+                --color-ghost-text: #c8d0d8;
+                --color-status-on-bg: #1e3a2f;
+                --color-status-on-text: #a9e5c8;
+                --color-status-off-bg: #24282c;
+                --color-status-off-text: #a2a8b0;
+                --color-warning: #d9b86a;
+            }
+            body {
+                margin: 0;
+                padding: 16px;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+            .header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 4px;
+            }
+            .user-header {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+            .user-name {
+                font-size: 15px;
+                font-weight: 500;
+                color: #e5e7eb;
+                line-height: 28px;
+            }
+            .user-header button {
+                padding: 0 12px;
+                font-size: 12px;
+                height: 28px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            h1 {
+                font-size: 18px;
+                margin: 0;
+            }
+            .card {
+                background: var(--color-card);
+                border: 1px solid var(--color-border);
+                border-radius: 10px;
+                padding: 12px;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+            .card.tabs-container {
+                padding-top: 0;
+                gap: 0;
+            }
+            .view {
+                display: none;
+            }
+            .view.active {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+            label {
+                display: block;
+                font-size: 12px;
+                margin-bottom: 4px;
+                color: var(--color-muted);
+            }
+            input,
+            select {
+                width: 100%;
+                background: var(--color-input-bg);
+                border: 1px solid var(--color-border);
+                color: var(--color-text);
+                border-radius: 8px;
+                padding: 8px 10px;
+                box-sizing: border-box;
+            }
+            select {
+                cursor: pointer;
+            }
             .status {
-              padding: 4px 10px;
-              border-radius: 6px;
-              font-size: 11px;
-              font-weight: 600;
-              display: inline-block;
-              text-transform: uppercase;
-              letter-spacing: 0.02em;
+                padding: 4px 10px;
+                border-radius: 6px;
+                font-size: 11px;
+                font-weight: 600;
+                display: inline-block;
+                text-transform: uppercase;
+                letter-spacing: 0.02em;
+            }
+            .status.on,
+            .status.saved {
+                background: var(--color-status-on-bg);
+                color: var(--color-status-on-text);
+            }
+            .status.off,
+            .status.unsaved {
+                background: var(--color-status-off-bg);
+                color: var(--color-status-off-text);
+            }
+            .status.warning,
+            .status.saving {
+                background: rgba(217, 184, 106, 0.1);
+                color: var(--color-warning);
+            }
+            .status.error {
+                background: rgba(248, 113, 113, 0.1);
+                color: #f87171;
             }
 
-            .status.on, .status.saved {
+            textarea {
+                width: 100%;
+                min-height: 140px;
+                max-height: 220px;
+                background: var(--color-input-bg);
+                border: 1px solid var(--color-border);
+                color: var(--color-text);
+                border-radius: 8px;
+                padding: 10px;
+                resize: vertical;
+                box-sizing: border-box;
+            }
+            button {
+                padding: 8px 12px;
+                border-radius: 8px;
+                border: none;
+                background: var(--color-primary);
+                color: var(--color-primary-text);
+                cursor: pointer;
+            }
+            button.primary {
+                background: var(--color-primary);
+                color: var(--color-primary-text);
+            }
+            button.secondary {
+                background: var(--color-secondary);
+                color: var(--color-secondary-text);
+            }
+            button.ghost {
+                background: transparent;
+                border: 1px solid var(--color-ghost-border);
+                color: var(--color-ghost-text);
+            }
+            button.countdown-mode {
+                background: var(--color-secondary) !important;
+                color: #ff5f5f !important;
+                cursor: not-allowed;
+            }
+            .row {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+            }
+            .row.space {
+                justify-content: space-between;
+            }
+            .row.top {
+                align-items: flex-start;
+            }
+            .hint {
+                font-size: 11px;
+                color: var(--color-muted);
+                margin: 0;
+            }
+            .modal {
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.55);
+                display: none;
+                align-items: center;
+                justify-content: center;
+            }
+            .modal.active {
+                display: flex;
+            }
+            .modal-card {
+                width: 320px;
+                background: #0b1220;
+                border: 1px solid #1f2937;
+                border-radius: 10px;
+                padding: 16px;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+            .log {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+                font-size: 12px;
+            }
+            .log-item {
+                background: #111827;
+                border: 1px solid #1f2937;
+                border-radius: 6px;
+                padding: 6px 8px;
+            }
+            .friend-item {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 8px;
+                background: #111827;
+                border: 1px solid #1f2937;
+                border-radius: 6px;
+                margin-bottom: 6px;
+                cursor: pointer;
+                user-select: none;
+            }
+            .friend-item:hover {
+                background: #1a1f2e;
+            }
+            .friend-item.selected {
+                background: var(--color-status-on-bg);
+                border-color: var(--color-primary);
+            }
+            .friend-avatar {
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                background: var(--color-secondary);
+                flex-shrink: 0;
+            }
+            .friend-info {
+                flex: 1;
+                min-width: 0;
+            }
+            .friend-name {
+                font-size: 13px;
+                font-weight: 500;
+                color: var(--color-text);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .friend-status {
+                font-size: 11px;
+                color: var(--color-muted);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .tabs {
+                display: flex;
+                justify-content: space-between;
+                gap: 8px;
+                border-bottom: 1px solid var(--color-border);
+            }
+            .tab {
+                flex: 1;
+                padding: 8px 0;
+                text-align: center;
+                background: transparent;
+                border: none;
+                border-bottom: 2px solid transparent;
+                color: var(--color-muted);
+                cursor: pointer;
+                font-size: 13px;
+                font-weight: 500;
+                margin: 0;
+                border-radius: 0;
+            }
+            .tab:hover {
+                color: var(--text);
+                background: transparent;
+            }
+            .tab.active {
+                color: var(--color-primary);
+                border-bottom-color: var(--color-primary);
+            }
+            .tab-content {
+                display: none;
+                padding-top: 12px;
+                flex-direction: column;
+                gap: 16px;
+            }
+            .tab-content.active {
+                display: flex;
+            }
+            /* Toggle Switch */
+            .switch {
+                position: relative;
+                display: inline-block;
+                width: 40px;
+                height: 22px;
+                flex-shrink: 0;
+            }
+            .switch input {
+                opacity: 0;
+                width: 0;
+                height: 0;
+                margin: 0;
+            }
+            .switch label {
+                margin: 0;
+            }
+            .slider {
+                position: absolute;
+                cursor: pointer;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: var(--color-status-off-bg);
+                transition: 0.3s;
+                border-radius: 22px;
+                border: 1px solid var(--color-border);
+            }
+            .slider:before {
+                position: absolute;
+                content: "";
+                height: 16px;
+                width: 16px;
+                left: 2px;
+                bottom: 2px;
+                background-color: var(--color-muted);
+                transition: 0.3s;
+                border-radius: 50%;
+            }
+            input:checked + .slider {
+                background-color: var(--color-status-on-bg);
+                border-color: var(--color-primary);
+            }
+            input:checked + .slider:before {
+                transform: translateX(18px);
+                background-color: var(--color-status-on-text);
+            }
 
-        background: var(--color-status-on-bg);
-        color: var(--color-status-on-text);
-      }
-      .status.off, .status.unsaved {
-        background: var(--color-status-off-bg);
-        color: var(--color-status-off-text);
-      }
-      .status.warning, .status.saving {
-        background: rgba(217, 184, 106, 0.1);
-        color: var(--color-warning);
-      }
-      .status.error {
-        background: rgba(248, 113, 113, 0.1);
-        color: #f87171;
-      }
+            /* Layout Helpers */
 
-      textarea {
-        width: 100%;
-        min-height: 140px;
-        max-height: 220px;
-        background: var(--color-input-bg);
-        border: 1px solid var(--color-border);
-        color: var(--color-text);
-        border-radius: 8px;
-        padding: 10px;
-        resize: vertical;
-        box-sizing: border-box;
-      }
-      button {
-        margin-top: 8px;
-        padding: 8px 12px;
-        border-radius: 8px;
-        border: none;
-        background: var(--color-primary);
-        color: var(--color-primary-text);
-        cursor: pointer;
-      }
-      button.primary {
-        background: var(--color-primary);
-        color: var(--color-primary-text);
-      }
-      button.secondary {
-        background: var(--color-secondary);
-        color: var(--color-secondary-text);
-      }
-      button.ghost {
-        background: transparent;
-        border: 1px solid var(--color-ghost-border);
-        color: var(--color-ghost-text);
-      }
-      button.countdown-mode {
-        background: var(--color-secondary) !important;
-        color: #ff5f5f !important;
-        cursor: not-allowed;
-      }
-      .row {
-        display: flex;
-        gap: 8px;
-        margin-top: 8px;
-      }
-      .row.space {
-        justify-content: space-between;
-      }
-      .hint {
-        font-size: 11px;
-        color: var(--color-muted);
-      }
-      .status-text {
-        margin-top: 6px;
-        font-size: 11px;
-        color: var(--color-muted);
-      }
-      .modal {
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.55);
-        display: none;
-        align-items: center;
-        justify-content: center;
-      }
-      .modal.active {
-        display: flex;
-      }
-      .modal-card {
-        width: 320px;
-        background: #0b1220;
-        border: 1px solid #1f2937;
-        border-radius: 10px;
-        padding: 16px;
-      }
-      .log {
-        margin-top: 12px;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        font-size: 12px;
-      }
-      .log-item {
-        background: #111827;
-        border: 1px solid #1f2937;
-        border-radius: 6px;
-        padding: 6px 8px;
-      }
-      .friend-item {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 8px;
-        background: #111827;
-        border: 1px solid #1f2937;
-        border-radius: 6px;
-        margin-bottom: 6px;
-        cursor: pointer;
-        user-select: none;
-      }
-      .friend-item:hover {
-        background: #1a1f2e;
-      }
-      .friend-item.selected {
-        background: var(--color-status-on-bg);
-        border-color: var(--color-primary);
-      }
-      .friend-avatar {
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        background: var(--color-secondary);
-        flex-shrink: 0;
-      }
-      .friend-info {
-        flex: 1;
-        min-width: 0;
-      }
-      .friend-name {
-        font-size: 13px;
-        font-weight: 500;
-        color: var(--color-text);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .friend-status {
-        font-size: 11px;
-        color: var(--color-muted);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .tabs {
-        display: flex;
-        justify-content: space-between;
-        gap: 8px;
-        margin-bottom: 4px;
-        border-bottom: 1px solid var(--color-border);
-      }
-      .tab {
-        flex: 1;
-        padding: 8px 0;
-        text-align: center;
-        background: transparent;
-        border: none;
-        border-bottom: 2px solid transparent;
-        color: var(--color-muted);
-        cursor: pointer;
-        font-size: 13px;
-        font-weight: 500;
-        margin: 0;
-        border-radius: 0;
-      }
-      .tab:hover {
-        color: var(--color-text);
-        background: transparent;
-      }
-      .tab.active {
-        color: var(--color-primary);
-        border-bottom-color: var(--color-primary);
-      }
-      .tab-content {
-        display: none;
-      }
-      .tab-content.active {
-        display: block;
-      }
-      /* Toggle Switch */
-      .switch {
-        position: relative;
-        display: inline-block;
-        width: 40px;
-        height: 22px;
-        flex-shrink: 0;
-      }
-      .switch input {
-        opacity: 0;
-        width: 0;
-        height: 0;
-        margin: 0;
-      }
-      .switch label {
-        margin: 0;
-      }
-      .slider {
-        position: absolute;
-        cursor: pointer;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: var(--color-status-off-bg);
-        transition: .3s;
-        border-radius: 22px;
-        border: 1px solid var(--color-border);
-      }
-      .slider:before {
-        position: absolute;
-        content: "";
-        height: 16px;
-        width: 16px;
-        left: 2px;
-        bottom: 2px;
-        background-color: var(--color-muted);
-        transition: .3s;
-        border-radius: 50%;
-      }
-      input:checked + .slider {
-        background-color: var(--color-status-on-bg);
-        border-color: var(--color-primary);
-      }
-      input:checked + .slider:before {
-        transform: translateX(18px);
-        background-color: var(--color-status-on-text);
-      }
-    </style>
-  </head>
-  <body>
-    <div class="header">
-      <h1>VRSleep</h1>
-      <div id="user-header" class="user-header" style="display: none;">
-        <span id="user-display-name" class="user-name">User</span>
-        <button id="update-btn" class="ghost" style="display: none;">Update Available</button>
-        <button id="logout" class="secondary">Logout</button>
-      </div>
-    </div>
+            .section {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
 
-    <!-- Login View -->
-    <div id="login-view" class="view active">
-      <div class="card">
-        <strong>Login to VRChat</strong>
-        <label for="username">Username or email</label>
-        <input id="username" autocomplete="username" />
-        <label for="password">Password</label>
-        <input id="password" type="password" autocomplete="current-password" />
-        <div class="row">
-          <button id="login">Login</button>
+            .section.gap-sm {
+                gap: 4px;
+            }
+
+            .w-full {
+                width: 100%;
+            }
+            .flex-1 {
+                flex: 1;
+            }
+            .text-right {
+                text-align: right;
+            }
+            .text-center {
+                text-align: center;
+            }
+            .btn-small {
+                padding: 4px 12px;
+                font-size: 11px;
+                height: 28px;
+            }
+            .status-select {
+                width: 90px;
+                flex-shrink: 0;
+            }
+            .type-select {
+                width: 110px;
+                flex-shrink: 0;
+            }
+            .slot-select {
+                width: 75px;
+                flex-shrink: 0;
+            }
+            .msg-preview {
+                min-height: 52px;
+                height: 52px;
+                padding: 8px;
+                resize: none;
+            }
+            .friends-modal {
+                width: 420px;
+                max-height: 80vh;
+                overflow: hidden;
+            }
+            .friends-list {
+                overflow-y: auto;
+                height: 300px;
+            }
+            .footer {
+                margin-top: 12px;
+                font-size: 11px;
+                color: var(--color-muted);
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>VRSleep</h1>
+            <div id="user-header" class="user-header" style="display: none">
+                <span id="user-display-name" class="user-name">User</span>
+                <button id="update-btn" class="ghost" style="display: none">
+                    Update Available
+                </button>
+                <button id="logout" class="secondary">Logout</button>
+            </div>
         </div>
-        <div class="hint" id="auth-hint"></div>
-      </div>
-    </div>
 
-    <!-- Main View -->
-    <div id="main-view" class="view">
-      <div class="card" style="padding-top: 8px;">
-        <div class="row space" style="align-items: center; margin-bottom: 12px; margin-top: 0;">
-          <strong>Sleep Mode</strong>
-          <div id="status" class="status off">Disabled</div>
-        </div>
-        <p class="hint">When enabled, SleepChat will automatically respond to invite requests from whitelisted users.</p>
-        <button id="toggle" class="primary" style="width: 100%;">Enable Sleep Mode</button>
-      </div>
-
-      <div class="card tabs-container">
-        <div class="tabs">
-          <button id="tab-whitelist" class="tab active">Whitelist</button>
-          <button id="tab-customizations" class="tab">Customizations</button>
-          <button id="tab-activity" class="tab">Activity Log</button>
-        </div>
-
-        <div id="content-whitelist" class="tab-content active">
-          <div class="row space" style="align-items: center; margin-bottom: 12px;">
-            <label style="margin: 0;">Whitelist (one per line)</label>
-            <div id="whitelist-status" class="status saved">Saved</div>
-          </div>
-          <textarea id="whitelist" placeholder="userId or display name"></textarea>
-          <button id="manage-whitelist" class="secondary" style="width: 100%; margin-top: 12px;">Select from Friends</button>
-        </div>
-
-        <div id="content-customizations" class="tab-content" style="padding-top: 10px;">
-          <div style="margin-bottom: 24px;">
-            <div class="row space" style="align-items: center; margin-bottom: 8px;">
-              <strong style="line-height: 22px;">Custom Status</strong>
-              <label class="switch">
-                <input type="checkbox" id="auto-status-toggle">
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div class="row space" style="align-items: center; margin-bottom: 4px;">
-              <p class="hint" style="margin: 0;">This status will be set when you enable sleep mode.</p>
-            </div>
-            <div class="row" style="gap: 8px; margin-top: 4px; align-items: center;">
-              <select id="sleep-status" style="width: 90px; background: var(--color-input-bg); border: 1px solid var(--color-border); color: var(--color-text); border-radius: 8px; padding: 8px; box-sizing: border-box; flex-shrink: 0;">
-                <option value="none" style="color: #9ca3af; background: #111315;">None</option>
-                <option value="join me" style="color: #42CAFF; background: #111315;">Join Me</option>
-                <option value="active" style="color: #51E57E; background: #111315;">Active</option>
-                <option value="ask me" style="color: #E8B138; background: #111315;">Ask Me</option>
-                <option value="busy" style="color: #C93131; background: #111315;">Busy</option>
-              </select>
-              <input id="sleep-status-description" placeholder="Status message..." style="margin: 0; flex: 1;" />
-            </div>
-            <div class="row" style="justify-content: flex-end; margin-top: 2px;">
-              <span id="status-char-count" class="hint" style="font-size: 10px;">0/32</span>
-            </div>
-          </div>
-
-          <div style="margin-bottom: 16px;">
-            <div class="row space" style="align-items: center; margin-bottom: 8px;">
-              <strong style="line-height: 22px;">Invite Message</strong>
-              <label class="switch">
-                <input type="checkbox" id="invite-message-toggle">
-                <span class="slider"></span>
-              </label>
-            </div>
-            <p class="hint">This message will be sent with your invite response.</p>
-            <div style="margin-top: 12px;">
-              <div class="row space" style="margin-top: 0; margin-bottom: 8px; align-items: center;">
-                <div class="row" style="gap: 8px; margin: 0;">
-                  <select id="invite-message-type" style="width: 110px; background: var(--color-input-bg); border: 1px solid var(--color-border); color: var(--color-text); border-radius: 8px; padding: 8px; box-sizing: border-box; flex-shrink: 0;">
-                    <option value="message">Invite</option>
-                    <option value="response">Response</option>
-                    <option value="request">Request</option>
-                    <option value="requestResponse">Req. Resp.</option>
-                  </select>
-                  <select id="invite-message-slot" style="width: 75px; background: var(--color-input-bg); border: 1px solid var(--color-border); color: var(--color-text); border-radius: 8px; padding: 8px; box-sizing: border-box; flex-shrink: 0;">
-                    <option value="0">Slot 1</option>
-                    <option value="1">Slot 2</option>
-                    <option value="2">Slot 3</option>
-                    <option value="3">Slot 4</option>
-                    <option value="4">Slot 5</option>
-                    <option value="5">Slot 6</option>
-                    <option value="6">Slot 7</option>
-                    <option value="7">Slot 8</option>
-                    <option value="8">Slot 9</option>
-                    <option value="9">Slot 10</option>
-                    <option value="10">Slot 11</option>
-                    <option value="11">Slot 12</option>
-                  </select>
+        <!-- Login View -->
+        <div id="login-view" class="view active">
+            <div class="card">
+                <strong>Login to VRChat</strong>
+                <div>
+                    <label for="username">Username or email</label>
+                    <input id="username" autocomplete="username" />
                 </div>
-                <button id="apply-slot" class="primary" style="margin: 0; padding: 4px 12px; font-size: 11px; height: 28px;">Apply</button>
-              </div>
-              <div class="row" style="margin-top: 8px;">
-                <textarea id="invite-slot-preview" maxlength="64" style="margin: 0; flex: 1; min-height: 52px; height: 52px; background: var(--color-input-bg); color: var(--color-text); border: 1px solid var(--color-border); border-radius: 8px; padding: 8px; box-sizing: border-box; resize: none;"></textarea>
-              </div>
-              <div class="row space" style="margin-top: 2px;">
-                <span class="hint" style="font-size: 10px; color: #f87171; flex: 1;">Overwrites the chosen slot and locks it for 60 minutes.</span>
-                <span id="invite-char-count" class="hint" style="font-size: 10px;">0/64</span>
-              </div>
+                <div>
+                    <label for="password">Password</label>
+                    <input
+                        id="password"
+                        type="password"
+                        autocomplete="current-password"
+                    />
+                </div>
+                <div class="row">
+                    <button id="login" class="primary">Login</button>
+                </div>
+                <div class="hint" id="auth-hint"></div>
             </div>
-          </div>
         </div>
 
-        <div id="content-activity" class="tab-content">
-          <div class="log" id="log"></div>
-        </div>
-      </div>
-    </div>
-    </div>
+        <!-- Main View -->
+        <div id="main-view" class="view">
+            <div class="card">
+                <div class="row space">
+                    <strong>Sleep Mode</strong>
+                    <div id="status" class="status off">Disabled</div>
+                </div>
+                <p class="hint">
+                    When enabled, SleepChat will automatically respond to invite
+                    requests from whitelisted users.
+                </p>
+                <button id="toggle" class="primary w-full">
+                    Enable Sleep Mode
+                </button>
+            </div>
 
-    <!-- 2FA Modal -->
-    <div id="modal" class="modal">
-      <div class="modal-card">
-        <strong id="modal-title">Two-factor verification</strong>
-        <p class="hint" id="modal-hint">Enter your verification code.</p>
-        <label for="modal-code">Code</label>
-        <input id="modal-code" autocomplete="one-time-code" />
-        <div class="row">
-          <button id="modal-submit">Verify</button>
-          <button id="modal-toggle" class="secondary">Use backup code</button>
-        </div>
-      </div>
-    </div>
+            <div class="card tabs-container">
+                <div class="tabs">
+                    <button id="tab-whitelist" class="tab active">
+                        Whitelist
+                    </button>
+                    <button id="tab-customizations" class="tab">
+                        Customizations
+                    </button>
+                    <button id="tab-activity" class="tab">Activity Log</button>
+                </div>
 
-    <!-- Friends Selector Modal -->
-    <div id="friends-modal" class="modal">
-      <div class="modal-card" style="width: 420px; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-          <strong>Add Friends to Whitelist</strong>
-          <button id="friends-close" class="ghost" style="margin: 0; padding: 4px 8px;">✕</button>
-        </div>
-        <input id="friends-search" placeholder="Search friends..." style="margin-bottom: 12px;" />
-        <div id="friends-list" style="flex: 1; overflow-y: auto; margin-bottom: 12px;"></div>
-        <div class="row">
-          <button id="friends-save" class="primary">Add Selected</button>
-        </div>
-      </div>
-    </div>
+                <div id="content-whitelist" class="tab-content active">
+                    <div class="row space">
+                        <label class="m-0">Whitelist (one per line)</label>
+                        <div id="whitelist-status" class="status saved">
+                            Saved
+                        </div>
+                    </div>
+                    <textarea
+                        id="whitelist"
+                        placeholder="userId or display name"
+                    ></textarea>
+                    <button id="manage-whitelist" class="secondary w-full">
+                        Select from Friends
+                    </button>
+                </div>
 
-    <div style="text-align: center; margin-top: 24px; font-size: 11px; color: var(--color-muted);">
-      Made with ❤️ by -Jesski-, for itsLyxie and sheepsheep.
-    </div>
+                <div id="content-customizations" class="tab-content">
+                    <div class="section">
+                        <div class="row space">
+                            <strong class="flex-1">Custom Status</strong>
+                            <label class="switch">
+                                <input
+                                    type="checkbox"
+                                    id="auto-status-toggle"
+                                />
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <p class="hint">
+                            This status will be set when you enable sleep mode.
+                        </p>
+                        <div class="row">
+                            <select id="sleep-status" class="status-select">
+                                <option
+                                    value="none"
+                                    style="color: #9ca3af; background: #111315"
+                                >
+                                    None
+                                </option>
+                                <option
+                                    value="join me"
+                                    style="color: #42caff; background: #111315"
+                                >
+                                    Join Me
+                                </option>
+                                <option
+                                    value="active"
+                                    style="color: #51e57e; background: #111315"
+                                >
+                                    Active
+                                </option>
+                                <option
+                                    value="ask me"
+                                    style="color: #e8b138; background: #111315"
+                                >
+                                    Ask Me
+                                </option>
+                                <option
+                                    value="busy"
+                                    style="color: #c93131; background: #111315"
+                                >
+                                    Busy
+                                </option>
+                            </select>
+                            <input
+                                id="sleep-status-description"
+                                placeholder="Status message..."
+                                class="flex-1"
+                            />
+                        </div>
+                        <div class="text-right">
+                            <span id="status-char-count" class="hint"
+                                >0/32</span
+                            >
+                        </div>
+                    </div>
 
-    <script src="renderer.js"></script>
-  </body>
+                    <div class="section">
+                        <div class="row space">
+                            <strong class="flex-1">Invite Message</strong>
+                            <label class="switch">
+                                <input
+                                    type="checkbox"
+                                    id="invite-message-toggle"
+                                />
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <p class="hint">
+                            This message will be sent with your invite response.
+                        </p>
+                        <div class="section gap-sm">
+                            <div class="row space">
+                                <div class="row">
+                                    <select
+                                        id="invite-message-type"
+                                        class="type-select"
+                                    >
+                                        <option value="message">Invite</option>
+                                        <option value="response">
+                                            Response
+                                        </option>
+                                        <option value="request">Request</option>
+                                        <option value="requestResponse">
+                                            Req. Resp.
+                                        </option>
+                                    </select>
+                                    <select
+                                        id="invite-message-slot"
+                                        class="slot-select"
+                                    >
+                                        <option value="0">Slot 1</option>
+                                        <option value="1">Slot 2</option>
+                                        <option value="2">Slot 3</option>
+                                        <option value="3">Slot 4</option>
+                                        <option value="4">Slot 5</option>
+                                        <option value="5">Slot 6</option>
+                                        <option value="6">Slot 7</option>
+                                        <option value="7">Slot 8</option>
+                                        <option value="8">Slot 9</option>
+                                        <option value="9">Slot 10</option>
+                                        <option value="10">Slot 11</option>
+                                        <option value="11">Slot 12</option>
+                                    </select>
+                                </div>
+                                <button
+                                    id="apply-slot"
+                                    class="primary btn-small"
+                                >
+                                    Apply
+                                </button>
+                            </div>
+                            <textarea
+                                id="invite-slot-preview"
+                                maxlength="64"
+                                class="msg-preview"
+                            ></textarea>
+                            <div class="row space top">
+                                <span class="hint flex-1" style="color: #f87171"
+                                    >Overwrites the chosen slot and locks it for
+                                    60 minutes.</span
+                                >
+                                <span id="invite-char-count" class="hint"
+                                    >0/64</span
+                                >
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="content-activity" class="tab-content">
+                    <div class="log" id="log"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2FA Modal -->
+        <div id="modal" class="modal">
+            <div class="modal-card">
+                <strong id="modal-title">Two-factor verification</strong>
+                <p class="hint" id="modal-hint">
+                    Enter your verification code.
+                </p>
+                <div>
+                    <label for="modal-code">Code</label>
+                    <input id="modal-code" autocomplete="one-time-code" />
+                </div>
+                <div class="row">
+                    <button id="modal-submit" class="flex-1">Verify</button>
+                    <button id="modal-toggle" class="secondary flex-1">
+                        Use backup code
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Friends Selector Modal -->
+        <div id="friends-modal" class="modal">
+            <div class="modal-card friends-modal">
+                <div class="row space">
+                    <strong>Add Friends to Whitelist</strong>
+                    <button id="friends-close" class="ghost btn-small">
+                        ✕
+                    </button>
+                </div>
+                <input id="friends-search" placeholder="Search friends..." />
+                <div id="friends-list" class="friends-list"></div>
+                <button id="friends-save" class="primary w-full">
+                    Add Selected
+                </button>
+            </div>
+        </div>
+
+        <div class="text-center footer">
+            Made with ❤️ by -Jesski-, for itsLyxie and sheepsheep.
+        </div>
+
+        <script src="renderer.js"></script>
+    </body>
 </html>
