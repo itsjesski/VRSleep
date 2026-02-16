@@ -61,10 +61,12 @@ const contentActivity = document.getElementById("content-activity");
 
 // --- DOM Elements: Utilities ---
 const loginButton = document.getElementById("login");
-const logoutButton = document.getElementById("logout");
 const usernameInput = document.getElementById("username");
 const passwordInput = document.getElementById("password");
 const updateButton = document.getElementById("update-btn");
+const userDropdown = document.getElementById("user-dropdown");
+const dropdownViewLog = document.getElementById("dropdown-view-log");
+const dropdownLogout = document.getElementById("dropdown-logout");
 
 // --- Application State ---
 const STATUS_COLORS = {
@@ -692,7 +694,33 @@ loginButton.addEventListener("click", async () => {
   }
 });
 
-logoutButton.addEventListener("click", async () => {
+// --- Dropdown Menu Logic ---
+userDisplayName.addEventListener("click", (e) => {
+  e.stopPropagation();
+  userDropdown.classList.toggle("show");
+});
+
+// Prevent dropdown from closing when clicking inside it
+userDropdown.addEventListener("click", (e) => {
+  e.stopPropagation();
+});
+
+// Close dropdown when clicking outside
+document.addEventListener("click", () => {
+  userDropdown.classList.remove("show");
+});
+
+dropdownViewLog.addEventListener("click", async () => {
+  userDropdown.classList.remove("show");
+  try {
+    await window.sleepchat.openLog();
+  } catch (error) {
+    appendLog(`Failed to open log file: ${error.message}`);
+  }
+});
+
+dropdownLogout.addEventListener("click", async () => {
+  userDropdown.classList.remove("show");
   await window.sleepchat.logout();
   setUserInfo(null);
 });

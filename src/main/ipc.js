@@ -1,9 +1,47 @@
 const { ipcMain } = require("electron");
+const { shell } = require("electron");
 const vrcapi = require("../api/vrcapi");
 const messageSlotsStore = require("../stores/message-slots-store");
+const { logError, getLogFilePath, clearLog, getLogFileSize } = require("../utils/logger");
+
+/**
+ * IPC Communication Module.
+ * Registers all IPC handlers for communication between the renderer and main process.
+ */
+
+/**
+ * Settings cache to reduce redundant disk reads.
+ * Cache expires after 1 second to balance performance with data freshness.
+ */
+let settingsCache = null;
+let settingsCacheTimestamp = 0;
+const SETTINGS_CACHE_TTL = 1000;
+
+/**
+ * Gets settings with caching to improve performance.
+ * @param {Function} getSettings - The settings getter function
+ * @returns {Object} The current settings
+ */
+function getCachedSettings(getSettings) {
+  const now = Date.now();
+  if (!settingsCache || now - settingsCacheTimestamp > SETTINGS_CACHE_TTL) {
+    settingsCache = getSettings();
+    settingsCacheTimestamp = now;
+  }
+  return settingsCache;
+}
+
+/**
+ * Invalidates the settings cache.
+ */
+function invalidateSettingsCache() {
+  settingsCache = null;
+  settingsCacheTimestamp = 0;
+}
 
 /**
  * Registers all IPC handlers for communication between the renderer and main process.
+ * @param {Object} deps - Dependency object containing all required functions
  */
 function registerIpcHandlers({
   getWhitelist,
@@ -19,8 +57,11 @@ function registerIpcHandlers({
   // Whitelist & Settings
   ipcMain.handle("whitelist:get", () => getWhitelist());
   ipcMain.handle("whitelist:set", (_event, list) => setWhitelist(list));
-  ipcMain.handle("settings:get", () => getSettings());
-  ipcMain.handle("settings:set", (_event, settings) => setSettings(settings));
+  ipcMain.handle("settings:get", () => getCachedSettings(getSettings));
+  ipcMain.handle("settings:set", (_event, settings) => {
+    invalidateSettingsCache();
+    return setSettings(settings);
+  });
 
   // Sleep Mode Control
   ipcMain.handle("sleep:start", () => sleepMode.start());
@@ -86,6 +127,54 @@ function registerIpcHandlers({
     }
   });
 
+  // Log Management
+  ipcMain.handle("log:open", async () => {
+    try {
+      const logPath = getLogFilePath();
+      const fs = require("fs");
+      
+      // Create the file with an initial message if it doesn't exist
+      if (!fs.existsSync(logPath)) {
+        const initialMessage = `[${new Date().toISOString()}] [INFO] [System] Log file created\n`;
+        fs.writeFileSync(logPath, initialMessage, "utf8");
+      }
+      
+      // Opens the log file with the default text editor
+      const result = await shell.openPath(logPath);
+      
+      // Check if the file was opened successfully
+      if (result) {
+        // Non-empty string means there was an error
+        throw new Error(result);
+      }
+      
+      return { ok: true };
+    } catch (error) {
+      logError("IPC", "Failed to open log file", error);
+      return { ok: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle("log:clear", async () => {
+    try {
+      clearLog();
+      return { ok: true };
+    } catch (error) {
+      logError("IPC", "Failed to clear log file", error);
+      return { ok: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle("log:info", async () => {
+    try {
+      const size = getLogFileSize();
+      const path = getLogFilePath();
+      return { ok: true, size, path };
+    } catch (error) {
+      return { ok: false, error: error.message };
+    }
+  });
+
   // Message Slots Management
   ipcMain.handle("messages:get-cached", () => {
     return messageSlotsStore.getCachedSlots();
@@ -138,7 +227,7 @@ function registerIpcHandlers({
 
       return { ok: true, slotData: result };
     } catch (error) {
-      console.error(`Error in messages:get-slot:`, error);
+      logError("IPC", "Error in messages:get-slot", error);
       return { ok: false, error: error.message };
     }
   });
@@ -165,7 +254,7 @@ function registerIpcHandlers({
 
       return { ok: true, messages: result };
     } catch (error) {
-      console.error(`Error in messages:get-all:`, error);
+      logError("IPC", "Error in messages:get-all", error);
       return { ok: false, error: error.message };
     }
   });
@@ -200,7 +289,7 @@ function registerIpcHandlers({
 
         return { ok: true, result };
       } catch (error) {
-        console.error(`Error in messages:update-slot:`, error);
+        logError("IPC", "Error in messages:update-slot", error);
 
         // If we get a 429, we KNOW the slot is locked.
         if (error.status === 429) {

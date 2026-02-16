@@ -1,4 +1,5 @@
 const { app } = require("electron");
+const config = require("../config");
 
 /**
  * Applies performance and resource-usage optimizations to the Electron process.
@@ -6,8 +7,7 @@ const { app } = require("electron");
  */
 function applyLowRamSettings() {
   // Limit the V8 heap size to prevent the app from consuming excessive memory over time.
-  // Default is 128MB, which is plenty for this utility.
-  const maxOldSpace = Number(process.env.SLEEPCHAT_MAX_OLD_SPACE_MB || 128);
+  const maxOldSpace = config.resources.maxOldSpaceMb;
   if (Number.isFinite(maxOldSpace) && maxOldSpace > 0) {
     app.commandLine.appendSwitch(
       "js-flags",

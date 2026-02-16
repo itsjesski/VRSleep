@@ -3,6 +3,9 @@
  * Manages background polling for invite requests, automatic responses,
  * and status synchronization with VRChat.
  */
+const config = require("../config");
+const { logError, logWarn, logInfo } = require("../utils/logger");
+
 function createSleepMode({
   getWhitelist,
   fetchInvites,
@@ -26,6 +29,7 @@ function createSleepMode({
   // Track handled IDs to prevent spam and duplicate invites
   const handledInviteIds = new Set();
   const handledSenderIds = new Set();
+  let cleanupTimer = null;
 
   /**
    * Calculates the safe polling interval based on configuration.
@@ -43,6 +47,55 @@ function createSleepMode({
     return String(entry || "")
       .trim()
       .toLowerCase();
+  }
+
+  /**
+   * Cleans up old entries from tracking Sets to prevent memory leaks.
+   * Removes oldest entries when size limits are exceeded.
+   */
+  function cleanupTrackedIds() {
+    // Cleanup invite IDs
+    if (handledInviteIds.size > config.security.maxHandledInviteIds) {
+      const excess = handledInviteIds.size - config.security.maxHandledInviteIds;
+      const iterator = handledInviteIds.values();
+      for (let i = 0; i < excess; i++) {
+        const value = iterator.next().value;
+        if (value !== undefined) {
+          handledInviteIds.delete(value);
+        }
+      }
+      logInfo("SleepMode", `Cleaned up ${excess} old invite IDs`);
+    }
+
+    // Cleanup sender IDs
+    if (handledSenderIds.size > config.security.maxHandledSenderIds) {
+      const excess = handledSenderIds.size - config.security.maxHandledSenderIds;
+      const iterator = handledSenderIds.values();
+      for (let i = 0; i < excess; i++) {
+        const value = iterator.next().value;
+        if (value !== undefined) {
+          handledSenderIds.delete(value);
+        }
+      }
+      logInfo("SleepMode", `Cleaned up ${excess} old sender IDs`);
+    }
+  }
+
+  /**
+   * Starts the periodic cleanup timer.
+   */
+  function startCleanup() {
+    if (cleanupTimer) return;
+    cleanupTimer = setInterval(cleanupTrackedIds, config.security.cleanupInterval);
+  }
+
+  /**
+   * Stops the periodic cleanup timer.
+   */
+  function stopCleanup() {
+    if (!cleanupTimer) return;
+    clearInterval(cleanupTimer);
+    cleanupTimer = null;
   }
 
   /**
@@ -79,7 +132,11 @@ function createSleepMode({
       // Rule 1: Skip if we've already invited this sender in this session.
       // We still delete the notification to keep the user's feed clean.
       if (handledSenderIds.has(senderIdRaw)) {
-        if (inviteId) await deleteNotification(inviteId).catch(() => { });
+        if (inviteId) {
+          await deleteNotification(inviteId).catch((err) => {
+            logError("SleepMode", `Failed to delete notification ${inviteId}`, err);
+          });
+        }
         continue;
       }
 
@@ -94,7 +151,11 @@ function createSleepMode({
       if (!matches) {
         // If not whitelisted, we still hide the notification so it doesn't
         // clutter the feed or trigger future checks.
-        if (inviteId) await deleteNotification(inviteId).catch(() => { });
+        if (inviteId) {
+          await deleteNotification(inviteId).catch((err) => {
+            logError("SleepMode", `Failed to delete notification ${inviteId}`, err);
+          });
+        }
         continue;
       }
 
@@ -115,11 +176,21 @@ function createSleepMode({
         log(`Sent invite to ${displayName}`);
 
         // Cleanup the notification after successful response
-        if (inviteId) await deleteNotification(inviteId).catch(() => { });
+        if (inviteId) {
+          await deleteNotification(inviteId).catch((err) => {
+            logError("SleepMode", `Failed to delete notification ${inviteId}`, err);
+          });
+        }
       } catch (error) {
-        log(`Failed to send invite to ${displayName}: ${error.message}`);
+        const errorMsg = error?.message || "Unknown error";
+        log(`Failed to send invite to ${displayName}: ${errorMsg}`);
+        logError("SleepMode", `Invite error for ${senderIdRaw}: ${errorMsg}`, error);
         // Hide it anyway so we don't get stuck in an error loop on the same notification
-        if (inviteId) await deleteNotification(inviteId).catch(() => { });
+        if (inviteId) {
+          await deleteNotification(inviteId).catch((err) => {
+            logError("SleepMode", `Failed to delete notification ${inviteId}`, err);
+          });
+        }
       }
     }
   }
@@ -191,7 +262,9 @@ function createSleepMode({
           `Status updated to: ${setSleepStatus} (${setSleepDescription || "no message"})`,
         );
       } catch (error) {
-        log(`Failed to update status: ${error.message}`);
+        const errorMsg = error?.message || "Unknown error";
+        log(`Failed to update status: ${errorMsg}`);
+        logError("SleepMode", "Status update error", error);
       }
     } else if (preSleepStatus) {
       // Restoration Logic: If the feature is turned off while in Sleep Mode, restore pre-sleep state.
@@ -207,7 +280,9 @@ function createSleepMode({
         setSleepStatus = null;
         setSleepDescription = null;
       } catch (error) {
-        log(`Failed to restore status: ${error.message}`);
+        const errorMsg = error?.message || "Unknown error";
+        log(`Failed to restore status: ${errorMsg}`);
+        logError("SleepMode", "Pre-sleep status restoration error", error);
       }
     }
   }
@@ -219,10 +294,13 @@ function createSleepMode({
     try {
       sleepMode = true;
       startPolling();
+      startCleanup();
       log("Sleep mode enabled.");
       await refreshStatus();
     } catch (error) {
-      log(`Error: ${error.message}`);
+      const errorMsg = error?.message || "Unknown error";
+      log(`Error: ${errorMsg}`);
+      logError("SleepMode", "Start error", error);
     }
     return { sleepMode };
   }
@@ -234,6 +312,7 @@ function createSleepMode({
     try {
       sleepMode = false;
       stopPolling();
+      stopCleanup();
       log("Sleep mode disabled.");
 
       // Reset tracking sets for the next session
@@ -262,7 +341,9 @@ function createSleepMode({
             log("Status was changed manually in-game. Skipping restoration.");
           }
         } catch (error) {
-          log(`Failed to restore status: ${error.message}`);
+          const errorMsg = error?.message || "Unknown error";
+          log(`Failed to restore status: ${errorMsg}`);
+          logError("SleepMode", "Status restoration error", error);
         } finally {
           preSleepStatus = null;
           setSleepStatus = null;
@@ -270,7 +351,9 @@ function createSleepMode({
         }
       }
     } catch (error) {
-      log(`Error stopping sleep mode: ${error.message}`);
+      const errorMsg = error?.message || "Unknown error";
+      log(`Error stopping sleep mode: ${errorMsg}`);
+      logError("SleepMode", "Stop error", error);
     }
     return { sleepMode };
   }

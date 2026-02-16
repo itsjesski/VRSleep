@@ -7,6 +7,17 @@ const path = require("path");
  * Manages the persistent storage of user preferences and application configuration.
  */
 
+/**
+ * @typedef {Object} AppSettings
+ * @property {string} sleepStatus - The VRChat status to set during sleep mode
+ * @property {string} sleepStatusDescription - The status description text
+ * @property {number} inviteMessageSlot - Which message slot to use for invites (0-11)
+ * @property {string} inviteMessageType - The type of message ("message", "response", etc.)
+ * @property {boolean} autoStatusEnabled - Whether to automatically change status
+ * @property {boolean} inviteMessageEnabled - Whether to use message slots for invites
+ * @property {string} activeTab - The last active UI tab
+ */
+
 const FILE_NAME = "settings.json";
 
 // Default configuration for fresh installations.
@@ -30,7 +41,7 @@ function getFilePath() {
 
 /**
  * Retrieves the current settings from disk, merged with defaults.
- * @returns {Object} The complete settings object.
+ * @returns {AppSettings} The complete settings object.
  */
 function getSettings() {
   const filePath = getFilePath();
@@ -49,8 +60,8 @@ function getSettings() {
 
 /**
  * Partially or fully updates the application settings.
- * @param {Object} settings - An object containing the settings to update.
- * @returns {Object} The newly saved, complete settings object.
+ * @param {Partial<AppSettings>} settings - An object containing the settings to update.
+ * @returns {AppSettings} The newly saved, complete settings object.
  */
 function setSettings(settings) {
   const filePath = getFilePath();

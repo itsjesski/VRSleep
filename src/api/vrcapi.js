@@ -1,15 +1,7 @@
-const API_BASE = "https://api.vrchat.cloud/api/1";
 const { getAuthHeaders, requestJson } = require("./vrcauth");
-
-/**
- * Builds a complete VRChat API URL, optionally appending the API key.
- */
-function buildUrl(path) {
-  const apiKey = process.env.VRC_API_KEY;
-  if (!apiKey) return `${API_BASE}${path}`;
-  const joiner = path.includes("?") ? "&" : "?";
-  return `${API_BASE}${path}${joiner}apiKey=${encodeURIComponent(apiKey)}`;
-}
+const { buildUrl, isValidUserId, isValidNotificationId, sanitizeMessage, delay, retryWithBackoff } = require("./api-utils");
+const config = require("../config");
+const { logError } = require("../utils/logger");
 
 /**
  * Retrieves authentication headers or throws if not logged in.
@@ -75,7 +67,10 @@ async function sendInvite(
   messageSlot = null,
   messageType = "message",
 ) {
-  if (!userId) throw new Error("Missing user id");
+  // Security: Validate user ID
+  if (!userId || !isValidUserId(userId)) {
+    throw new Error("Invalid user ID");
+  }
 
   const { json: userData } = await requestJson("/auth/user", {
     method: "GET",
@@ -101,9 +96,14 @@ async function sendInvite(
 
   const body = { instanceId: inviteLocation };
   if (message && message.trim()) {
-    body.message = message.trim();
+    // Security: Sanitize message content
+    body.message = sanitizeMessage(message, 256);
   } else if (messageSlot !== null && messageSlot !== undefined) {
-    body.messageSlot = Number(messageSlot);
+    const slotNum = Number(messageSlot);
+    if (!Number.isInteger(slotNum) || slotNum < 0 || slotNum > 11) {
+      throw new Error("Invalid message slot (must be 0-11)");
+    }
+    body.messageSlot = slotNum;
     body.messageType = messageType;
   }
 
@@ -120,7 +120,10 @@ async function sendInvite(
  * Hides/deletes a notification from the user's feed.
  */
 async function deleteNotification(notificationId) {
-  if (!notificationId) throw new Error("Missing notification id");
+  // Security: Validate notification ID
+  if (!notificationId || !isValidNotificationId(notificationId)) {
+    throw new Error("Invalid notification ID");
+  }
   const { json } = await requestJson(
     `/auth/user/notifications/${encodeURIComponent(notificationId)}/hide`,
     {
@@ -188,11 +191,22 @@ async function getCurrentUser() {
  * Updates the user's status (Active, Join Me, etc.) and status description.
  */
 async function updateStatus(userId, status, statusDescription) {
-  if (!userId) throw new Error("Missing user id");
+  // Security: Validate inputs
+  if (!userId || !isValidUserId(userId)) {
+    throw new Error("Invalid user ID");
+  }
+  
+  const validStatuses = ["active", "join me", "ask me", "busy", "offline"];
+  if (!validStatuses.includes(status)) {
+    throw new Error("Invalid status value");
+  }
+  
+  const sanitizedDescription = sanitizeMessage(statusDescription || "", 32);
+  
   const { json } = await requestJson(`/users/${encodeURIComponent(userId)}`, {
     method: "PUT",
     headers: getHeaders(),
-    body: JSON.stringify({ status, statusDescription }),
+    body: JSON.stringify({ status, statusDescription: sanitizedDescription }),
   });
   return json;
 }
@@ -201,13 +215,21 @@ async function updateStatus(userId, status, statusDescription) {
  * Fetches a single message slot.
  */
 async function getMessageSlot(userId, type, slot) {
-  if (!userId) throw new Error("Missing user id");
-  const path = `/message/${encodeURIComponent(userId)}/${type}/${Number(slot)}`;
+  // Security: Validate inputs
+  if (!userId || !isValidUserId(userId)) {
+    throw new Error("Invalid user ID");
+  }
+  const slotNum = Number(slot);
+  if (!Number.isInteger(slotNum) || slotNum < 0 || slotNum > 11) {
+    throw new Error("Invalid slot number (must be 0-11)");
+  }
+  
+  const path = `/message/${encodeURIComponent(userId)}/${type}/${slotNum}`;
   const { json } = await requestJson(path, {
     method: "GET",
     headers: getHeaders(),
   });
-  return parseSlotResponse(json, slot);
+  return parseSlotResponse(json, slotNum);
 }
 
 /**
@@ -215,10 +237,13 @@ async function getMessageSlot(userId, type, slot) {
  * Sequential batching is used to strictly avoid VRChat API rate limits (429).
  */
 async function getMessageSlots(userId, type = "requestResponse") {
-  if (!userId) throw new Error("Missing user id");
+  // Security: Validate user ID
+  if (!userId || !isValidUserId(userId)) {
+    throw new Error("Invalid user ID");
+  }
 
   const results = [];
-  const batchSize = 3;
+  const batchSize = config.api.messageBatchSize;
 
   for (let i = 0; i < 12; i += batchSize) {
     const batchPromises = [];
@@ -231,7 +256,7 @@ async function getMessageSlots(userId, type = "requestResponse") {
         })
           .then(({ json }) => parseSlotResponse(json, j))
           .catch((err) => {
-            console.error(`Error fetching slot ${j} for ${type}:`, err.message);
+            logError("VRChatAPI", `Error fetching slot ${j} for ${type}`, err);
             return { slot: j, message: "", remainingCooldownMinutes: 0 };
           }),
       );
@@ -240,7 +265,7 @@ async function getMessageSlots(userId, type = "requestResponse") {
     results.push(...batchResults);
 
     if (i + batchSize < 12) {
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      await delay(config.api.batchDelay);
     }
   }
 
@@ -252,15 +277,26 @@ async function getMessageSlots(userId, type = "requestResponse") {
  * which the application uses to synchronize the entire local cache.
  */
 async function updateMessageSlot(userId, type, slot, message) {
-  if (!userId) throw new Error("Missing user id");
-  console.log(`[API] updateMessageSlot: type=${type}, slot=${slot}`);
+  // Security: Validate inputs
+  if (!userId || !isValidUserId(userId)) {
+    throw new Error("Invalid user ID");
+  }
+  const slotNum = Number(slot);
+  if (!Number.isInteger(slotNum) || slotNum < 0 || slotNum > 11) {
+    throw new Error("Invalid slot number (must be 0-11)");
+  }
+  
+  console.log(`[API] updateMessageSlot: type=${type}, slot=${slotNum}`);
+  
+  // Security: Sanitize message content
+  const sanitized = sanitizeMessage(message, 256);
 
   const { json } = await requestJson(
-    `/message/${encodeURIComponent(userId)}/${type}/${Number(slot)}`,
+    `/message/${encodeURIComponent(userId)}/${type}/${slotNum}`,
     {
       method: "PUT",
       headers: getHeaders(),
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message: sanitized }),
     },
   );
 

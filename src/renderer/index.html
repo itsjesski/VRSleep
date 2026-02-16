@@ -72,11 +72,78 @@
                 gap: 12px;
             }
 
+            .user-menu {
+                position: relative;
+            }
+
             .user-name {
                 font-size: 15px;
                 font-weight: 500;
                 color: #e5e7eb;
                 line-height: 28px;
+                cursor: pointer;
+                padding: 4px 8px;
+                border-radius: 6px;
+                transition: background 0.2s;
+                user-select: none;
+            }
+
+            .user-name:hover {
+                background: var(--color-secondary);
+            }
+
+            .user-name::after {
+                content: ' ▼';
+                font-size: 10px;
+                opacity: 0.6;
+            }
+
+            .dropdown-menu {
+                position: absolute;
+                top: calc(100% + 4px);
+                right: 0;
+                background: var(--color-card);
+                border: 1px solid var(--color-border);
+                border-radius: 8px;
+                min-width: 160px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                display: none;
+                z-index: 1000;
+                overflow: hidden;
+            }
+
+            .dropdown-menu.show {
+                display: block;
+            }
+
+            .dropdown-item {
+                padding: 10px 14px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                font-size: 14px;
+                color: var(--color-text);
+                transition: background 0.15s;
+                border: none;
+                background: none;
+                width: 100%;
+                text-align: left;
+            }
+
+            .dropdown-item:hover {
+                background: var(--color-secondary);
+            }
+
+            .dropdown-item:not(:last-child) {
+                border-bottom: 1px solid var(--color-border);
+            }
+
+            .dropdown-item.danger {
+                color: #ef4444;
+            }
+
+            .dropdown-item.danger:hover {
+                background: #3a1f1f;
             }
 
             .card {
@@ -485,6 +552,7 @@
                 margin-top: 12px;
                 font-size: 11px;
                 color: var(--color-muted);
+                text-align: center;
             }
         </style>
     </head>
@@ -493,11 +561,20 @@
         <div class="header">
             <h1>VRSleep</h1>
             <div id="user-header" class="user-header" style="display: none">
-                <span id="user-display-name" class="user-name">User</span>
                 <button id="update-btn" class="ghost" style="display: none">
                     Update Available
                 </button>
-                <button id="logout" class="secondary">Logout</button>
+                <div class="user-menu">
+                    <span id="user-display-name" class="user-name">User</span>
+                    <div id="user-dropdown" class="dropdown-menu">
+                        <button class="dropdown-item" id="dropdown-view-log">
+                            View Log
+                        </button>
+                        <button class="dropdown-item danger" id="dropdown-logout">
+                            Logout
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -741,7 +818,7 @@
         </div>
 
         <!-- Application Footer -->
-        <div class="text-center footer">
+        <div class="footer">
             Made with ❤️ by -Jesski-, for itsLyxie and sheepsheep.
         </div>
 

@@ -8,6 +8,13 @@ const path = require("path");
  * to ensure that cookies and user IDs are encrypted at rest.
  */
 
+/**
+ * @typedef {Object} AuthData
+ * @property {string} cookies - Encrypted authentication cookies
+ * @property {string|null} userId - The authenticated user's VRChat ID
+ * @property {Object|null} user - The full user object from VRChat
+ */
+
 const FILE_NAME = "auth.json";
 let cachedAuth = null;
 
@@ -21,6 +28,7 @@ function getFilePath() {
 /**
  * Loads and decrypts authentication data from disk.
  * Returns null if no session exists or if decryption fails.
+ * @returns {AuthData|null} The decrypted authentication data or null
  */
 function loadAuth() {
   if (cachedAuth) return cachedAuth;
@@ -53,7 +61,7 @@ function loadAuth() {
 
 /**
  * Encrypts and saves authentication data to disk.
- * @param {Object} auth - The authentication object containing cookies and user data.
+ * @param {AuthData} auth - The authentication object containing cookies and user data.
  */
 function saveAuth(auth) {
   if (!safeStorage.isEncryptionAvailable()) {

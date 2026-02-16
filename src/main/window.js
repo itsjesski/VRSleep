@@ -9,7 +9,7 @@ const path = require("path");
 /**
  * Creates and configures the main application window.
  * @param {Function} onCheckForUpdates - Callback function to trigger a manual update check.
- * @returns {BrowserWindow} The created window instance.
+ * @returns {Electron.BrowserWindow} The created window instance.
  */
 function createMainWindow(onCheckForUpdates) {
   const mainWindow = new BrowserWindow({

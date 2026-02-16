@@ -1,4 +1,5 @@
 const { app, BrowserWindow } = require("electron");
+const config = require("../config");
 
 /**
  * Main Entry Point for VRSleep.
@@ -39,6 +40,7 @@ const updater = require("./updater");
 const { createMainWindow } = require("./window");
 const { createSleepMode } = require("./sleep-mode");
 const { registerIpcHandlers } = require("./ipc");
+const { logInfo } = require("../utils/logger");
 
 // State Management
 let mainWindow;
@@ -47,13 +49,19 @@ let sleepModeInstance = null;
 let isQuitting = false;
 
 // Polling Configuration
-const DEFAULT_POLL_MS = 15000;
-const MIN_POLL_MS = 10000;
+const DEFAULT_POLL_MS = config.api.defaultPollMs;
+const MIN_POLL_MS = config.api.minPollMs;
 
 /**
  * Sends a log message to the renderer process for display in the Activity Log.
+ * Also writes to the log file for persistent debugging.
+ * @param {string} message - The log message to display
  */
 function log(message) {
+  // Write to file log
+  logInfo("Activity", message);
+  
+  // Send to UI
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("log", message);
   }
@@ -61,6 +69,7 @@ function log(message) {
 
 /**
  * Notifies the renderer that settings have changed globally.
+ * @param {Object} settings - The updated settings object
  */
 function notifySettingsChanged(settings) {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -76,7 +85,7 @@ applyLowRamSettings();
  */
 app.whenReady().then(() => {
   // Required for Windows Toast Notifications and taskbar grouping
-  app.setAppUserModelId("com.sleepchat.app");
+  app.setAppUserModelId(config.app.appUserModelId);
 
   // 1. Initialize UI
   mainWindow = createMainWindow(() => updater.checkForUpdates());

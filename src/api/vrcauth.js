@@ -1,27 +1,8 @@
 const { loadAuth, saveAuth, clearAuth } = require("../stores/auth-store");
+const { buildUrl, getUserAgent } = require("./api-utils");
+const config = require("../config");
 
-const API_BASE = "https://api.vrchat.cloud/api/1";
 let inMemoryAuth = null;
-
-/**
- * Builds a complete VRChat API URL.
- */
-function buildUrl(path) {
-  const apiKey = process.env.VRC_API_KEY;
-  if (!apiKey) return `${API_BASE}${path}`;
-  const joiner = path.includes("?") ? "&" : "?";
-  return `${API_BASE}${path}${joiner}apiKey=${encodeURIComponent(apiKey)}`;
-}
-
-/**
- * Returns a consistent User-Agent string for all requests.
- */
-function getUserAgent() {
-  return (
-    process.env.VRC_USER_AGENT ||
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-  );
-}
 
 /**
  * Parses a cookie string into a key-value object.
@@ -124,14 +105,14 @@ function isReadyForApi() {
 
 /**
  * Core helper for making JSON requests to the VRChat API.
- * Includes a 15-second timeout and automatic error parsing.
+ * Includes configurable timeout and automatic error parsing.
  */
 async function requestJson(path, options = {}) {
   const url = buildUrl(path);
   console.log("[API] Fetching:", url);
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const timeoutId = setTimeout(() => controller.abort(), config.api.requestTimeout);
 
   try {
     const response = await fetch(url, {
@@ -177,6 +158,14 @@ async function getConfig() {
  * Returns either an 'ok' status with user data or a '2fa' status with required methods.
  */
 async function login({ username, password }) {
+  // Security: Validate inputs
+  if (typeof username !== "string" || typeof password !== "string") {
+    throw new Error("Invalid credentials format");
+  }
+  if (username.trim().length === 0 || password.length === 0) {
+    throw new Error("Username and password required");
+  }
+  
   try {
     await getConfig();
   } catch (error) {
@@ -214,6 +203,14 @@ async function login({ username, password }) {
  * Verifies a 2FA code (TOTP, Email, or Backup Code).
  */
 async function verifyTwoFactor(type, code) {
+  // Security: Validate inputs
+  if (typeof type !== "string" || typeof code !== "string") {
+    throw new Error("Invalid 2FA parameters");
+  }
+  if (code.trim().length === 0) {
+    throw new Error("Verification code required");
+  }
+  
   const auth = inMemoryAuth || getStoredAuth();
   if (!auth?.cookies) throw new Error("No pending authentication cookies.");
 

@@ -46,10 +46,29 @@ function setupAutoUpdater(getWindow, log) {
 
   // Event: Update Found on Server
   autoUpdater.on("update-available", async (info) => {
-    // Basic verification: ensure the release actually has assets attached.
+    // Security & Validation: Ensure the release has valid installer files
     if (!info.files || info.files.length === 0) {
       log(
         "Update available but no installer found. Please download manually from GitHub.",
+      );
+      return;
+    }
+
+    // Validate that at least one file is a Windows installer
+    const hasValidInstaller = info.files.some((file) => {
+      const url = file.url || "";
+      const name = file.name || "";
+      return (
+        url.toLowerCase().endsWith(".exe") ||
+        url.toLowerCase().endsWith(".msi") ||
+        name.toLowerCase().endsWith(".exe") ||
+        name.toLowerCase().endsWith(".msi")
+      );
+    });
+
+    if (!hasValidInstaller) {
+      log(
+        "Update available but no Windows installer found. Please download manually from GitHub.",
       );
       return;
     }
