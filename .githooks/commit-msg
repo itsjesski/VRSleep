@@ -1,0 +1,79 @@
+#!/usr/bin/env node
+
+/**
+ * Git commit-msg hook
+ * Validates commit messages follow Conventional Commits format
+ * Required for automated changelog generation
+ */
+
+const fs = require('fs');
+const path = require('path');
+
+// Read the commit message
+const commitMsgFile = process.argv[2];
+const commitMsg = fs.readFileSync(commitMsgFile, 'utf8').trim();
+
+// Ignore merge commits
+if (commitMsg.startsWith('Merge')) {
+  process.exit(0);
+}
+
+// Valid conventional commit types
+const validTypes = [
+  'feat',     // New feature
+  'fix',      // Bug fix
+  'docs',     // Documentation
+  'style',    // Formatting, no code change
+  'refactor', // Code refactoring
+  'perf',     // Performance improvement
+  'test',     // Adding tests
+  'chore',    // Maintenance
+  'build',    // Build system
+  'ci',       // CI/CD
+  'revert',   // Revert previous commit
+  'security', // Security fix
+  'sec'       // Security fix (short)
+];
+
+// Conventional commit format: type(scope)?: description
+const conventionalPattern = new RegExp(
+  `^(${validTypes.join('|')})(\\([^)]+\\))?!?:\\s.+`
+);
+
+// Check if commit message matches conventional format
+if (!conventionalPattern.test(commitMsg)) {
+  console.error('\n❌ Invalid commit message format!\n');
+  console.error('📝 Commit message must follow Conventional Commits format:\n');
+  console.error('   <type>(<scope>): <description>\n');
+  console.error('Valid types:');
+  console.error('   feat     - New feature (appears in changelog)');
+  console.error('   fix      - Bug fix (appears in changelog)');
+  console.error('   security - Security improvement (appears in changelog)');
+  console.error('   refactor - Code improvement (appears in changelog)');
+  console.error('   perf     - Performance improvement (appears in changelog)');
+  console.error('   docs     - Documentation only');
+  console.error('   chore    - Maintenance tasks');
+  console.error('   test     - Adding tests');
+  console.error('   style    - Code formatting\n');
+  console.error('Examples:');
+  console.error('   ✓ feat: add automatic log rotation');
+  console.error('   ✓ fix: resolve memory leak in sleep mode');
+  console.error('   ✓ feat(ui): implement user dropdown menu');
+  console.error('   ✓ security: add input sanitization\n');
+  console.error('Your message:');
+  console.error(`   ✗ ${commitMsg}\n`);
+  console.error('See CONTRIBUTING.md for detailed guidelines.\n');
+  process.exit(1);
+}
+
+// Additional validation: ensure description doesn't start with uppercase
+const descriptionMatch = commitMsg.match(/:\s*([A-Z])/);
+if (descriptionMatch) {
+  console.warn('\n⚠️  Warning: Description should start with lowercase');
+  console.warn(`   Current: ${commitMsg}`);
+  console.warn(`   Better:  ${commitMsg.replace(/:\s*[A-Z]/, match => match.toLowerCase())}\n`);
+  // Just warn, don't block
+}
+
+// Success
+process.exit(0);

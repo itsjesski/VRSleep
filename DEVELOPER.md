@@ -178,6 +178,191 @@ The main process and renderer communicate via IPC (Inter-Process Communication):
 - Renderer displays UI and captures user input
 - Preload script provides secure bridge between them
 
+## Commit Message Examples
+
+This section shows how the auto-release script categorizes different commit messages.
+
+### Conventional Commit Format (Recommended)
+
+#### Feature Commits → "Added" Section
+
+```bash
+git commit -m "feat: add user profile settings"
+# Generates: Added
+#            - Add user profile settings
+
+git commit -m "feat(ui): implement dark mode toggle"
+# Generates: Added
+#            - Implement dark mode toggle
+
+git commit -m "add: new logging system with rotation"
+# Generates: Added
+#            - New logging system with rotation
+```
+
+#### Bug Fix Commits → "Fixed" Section
+
+```bash
+git commit -m "fix: resolve memory leak in polling loop"
+# Generates: Fixed
+#            - Resolve memory leak in polling loop
+
+git commit -m "fix(auth): handle 2FA timeout properly"
+# Generates: Fixed
+#            - Handle 2FA timeout properly
+
+git commit -m "bugfix: crash when clicking logout"
+# Generates: Fixed
+#            - Crash when clicking logout
+```
+
+#### Improvement Commits → "Changed" Section
+
+```bash
+git commit -m "refactor: optimize API request batching"
+# Generates: Changed
+#            - Optimize API request batching
+
+git commit -m "perf: reduce memory usage by 30%"
+# Generates: Changed
+#            - Reduce memory usage by 30%
+
+git commit -m "improve: enhance error messages"
+# Generates: Changed
+#            - Enhance error messages
+
+git commit -m "update: migrate to new VRChat API endpoint"
+# Generates: Changed
+#            - Migrate to new VRChat API endpoint
+```
+
+#### Security Commits → "Security" Section
+
+```bash
+git commit -m "security: add input sanitization layer"
+# Generates: Security
+#            - Add input sanitization layer
+
+git commit -m "sec: upgrade crypto library to v2.0"
+# Generates: Security
+#            - Upgrade crypto library to v2.0
+```
+
+#### Commits That Are Ignored
+
+```bash
+git commit -m "docs: update README with new examples"
+# Skipped (documentation-only change)
+
+git commit -m "chore: bump dependencies"
+# Skipped (maintenance task)
+
+git commit -m "style: fix indentation"
+# Skipped (code style only)
+
+git commit -m "test: add unit tests for auth"
+# Skipped (testing only)
+
+git commit -m "ci: update GitHub Actions workflow"
+# Skipped (CI/CD only)
+```
+
+### Non-Conventional Format (Still Works!)
+
+The script intelligently categorizes commits even without conventional format:
+
+```bash
+git commit -m "Add new feature to dashboard"
+# Keyword "Add" detected → Added section
+
+git commit -m "Fix bug with invite system"
+# Keyword "Fix" detected → Fixed section
+
+git commit -m "Security patch for authentication"
+# Keyword "security" detected → Security section
+
+git commit -m "Improved performance of polling"
+# Falls into → Changed section
+
+git commit -m "Updated user interface"
+# Falls into → Changed section
+```
+
+### Example Release Output
+
+If you made these commits since last release:
+
+```
+feat: add file-based logging system
+fix: resolve memory leak in sleep mode
+refactor: centralize configuration
+security: enhance input validation
+feat(ui): add user dropdown menu
+fix: correct API error handling
+docs: update developer guide
+```
+
+The script would generate:
+
+```markdown
+## [1.2.0] - 2026-02-16
+
+### Added
+- Add file-based logging system
+- Add user dropdown menu
+
+### Changed
+- Centralize configuration
+
+### Fixed
+- Resolve memory leak in sleep mode
+- Correct API error handling
+
+### Security
+- Enhance input validation
+
+---
+
+[Full commit history](https://github.com/itsjesski/VRSleep/commits/main)
+```
+
+Note: The "docs: update developer guide" commit is automatically skipped.
+
+### Tips for Best Results
+
+1. **Use conventional commits when possible** - they provide the most accurate categorization
+2. **Write clear, descriptive commit messages** - they become your release notes
+3. **Make atomic commits** - one logical change per commit
+4. **Review before proceeding** - the script shows a preview and lets you edit
+5. **Install GitHub CLI** - enables automatic release draft creation
+
+### Workflow Example
+
+```bash
+# Make changes and commit using conventional format
+git add .
+git commit -m "feat: add automatic log rotation"
+
+git add .
+git commit -m "fix: memory leak in notification polling"
+
+git add .
+git commit -m "docs: update README"
+
+# When ready to release
+npm run release
+
+# Script analyzes commits (docs commit is ignored)
+# Generates changelog automatically
+# Shows preview, you can edit if needed
+# Creates tag, pushes, and creates GitHub release draft
+
+# Build the installer
+npm run dist
+
+# Go to GitHub, upload installer to draft, publish!
+```
+
 ## Contributing
 
 When making changes:
