@@ -2,6 +2,18 @@
 
 All notable changes to VRSleep will be documented in this file.
 
+## [1.3.1] - 2026-02-16
+
+### Added
+- Enhance commit categorization to include documentation changes
+
+### Documentation
+- Update version to 1.3.0 in package-lock.json and release workflow
+
+---
+
+[Full commit history](https://github.com/itsjesski/VRSleep/commits/main)
+
 ## [1.3.0] - 2026-02-16
 
 ### Added
