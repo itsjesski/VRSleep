@@ -2,6 +2,15 @@
 
 All notable changes to VRSleep will be documented in this file.
 
+## [1.3.0] - 2026-02-16
+
+### Added
+- Update release process to extract notes from CHANGELOG and automate GitHub release creation
+
+---
+
+[Full commit history](https://github.com/itsjesski/VRSleep/commits/main)
+
 ## [1.2.0] - 2026-02-16
 
 ### Added
