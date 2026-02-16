@@ -827,7 +827,7 @@ async function loadSettings() {
 
   autoStatusToggle.checked = autoStatusEnabled;
   inviteMessageToggle.checked = inviteMessageEnabled;
-  if (s.activeTab) setActiveTab(s.activeTab);
+  setActiveTab(s.activeTab || "whitelist");
   updateSlotPreviews();
 }
 
