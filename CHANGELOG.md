@@ -2,6 +2,28 @@
 
 All notable changes to VRSleep will be documented in this file.
 
+## [1.2.0] - 2026-02-16
+
+### Added
+- Add release type options to release script and update package.json scripts
+- Implement automated changelog generation and release process
+
+### Changed
+- - Introduced commit message validation using Git hooks
+- - Created a structured changelog parser for in-app display
+- - Enhanced release script to auto-generate release notes from commits
+- - Updated developer documentation with commit message guidelines
+- - Added example commit messages for better clarity
+- - Implemented GitHub release draft creation using GitHub CLI
+- 
+
+### Fixed
+- Set default active tab to 'whitelist' if none is specified
+
+---
+
+[Full commit history](https://github.com/itsjesski/VRSleep/commits/main)
+
 ## [1.1.0] - 2026-02-16
 
 ### Added
