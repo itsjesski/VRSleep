@@ -199,52 +199,6 @@ function formatChangelog(categories) {
   return output;
 }
 
-/**
- * Create GitHub release notes
- */
-function formatGitHubRelease(version, categories, commitCount) {
-  let notes = `## What's New in v${version}\n\n`;
-  notes += formatChangelog(categories);
-  notes += '---\n\n';
-  notes += `📝 **${commitCount} commit${commitCount !== 1 ? 's' : ''}** since last release\n\n`;
-  notes += '[View full changelog](https://github.com/itsjesski/VRSleep/blob/main/CHANGELOG.md)\n';
-  return notes;
-}
-
-/**
- * Check if GitHub CLI is available
- */
-function hasGitHubCLI() {
-  try {
-    execSync('gh --version', { stdio: 'ignore' });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Create GitHub release using gh CLI
- */
-function createGitHubRelease(version, releaseNotes) {
-  try {
-    // Save release notes to temp file
-    const tempFile = path.join(__dirname, '.release-notes-temp.md');
-    fs.writeFileSync(tempFile, releaseNotes);
-    
-    execSync(
-      `gh release create v${version} --draft --title "v${version}" --notes-file "${tempFile}"`,
-      { stdio: 'inherit' }
-    );
-    
-    fs.unlinkSync(tempFile);
-    return true;
-  } catch (error) {
-    console.error('Failed to create GitHub release:', error.message);
-    return false;
-  }
-}
-
 async function main() {
   try {
     console.log('🚀 VRSleep Release Script\n');
@@ -398,30 +352,12 @@ async function main() {
       console.log('✓ Pushed to remote');
 
       console.log(`\n🎉 Release v${newVersion} complete!\n`);
-      
-      // Generate GitHub release notes
-      const ghReleaseNotes = formatGitHubRelease(
-        newVersion, 
-        categories, 
-        commits.length
-      );
-      
-      // Try to create GitHub release automatically
-      if (hasGitHubCLI()) {
-        console.log('📤 Creating GitHub release draft...\n');
-        if (createGitHubRelease(newVersion, ghReleaseNotes)) {
-          console.log('✓ GitHub release draft created!');
-          console.log('\nNext steps:');
-          console.log('1. Build the release: npm run dist');
-          console.log('2. Go to GitHub Releases and upload the installer to the draft');
-          console.log('3. Publish the release\n');
-        } else {
-          console.log('\n⚠️  Could not auto-create GitHub release.');
-          showManualReleaseInstructions(newVersion, ghReleaseNotes);
-        }
-      } else {
-        showManualReleaseInstructions(newVersion, ghReleaseNotes);
-      }
+      console.log('✅ GitHub Actions will automatically:');
+      console.log('   - Build the Windows installer');
+      console.log('   - Create a GitHub release');
+      console.log('   - Attach the installer');
+      console.log('   - Generate release notes\n');
+      console.log('📝 Changelog has been updated: CHANGELOG.md\n');
 
     } catch (error) {
       console.error('\n❌ Git operation failed:', error.message);
@@ -436,21 +372,6 @@ async function main() {
     rl.close();
     process.exit(1);
   }
-}
-
-function showManualReleaseInstructions(version, releaseNotes) {
-  const notesPath = path.join(__dirname, '..', 'RELEASE_NOTES.md');
-  fs.writeFileSync(notesPath, releaseNotes);
-  
-  console.log('\nNext steps:');
-  console.log('1. Build the release: npm run dist');
-  console.log('2. Go to: https://github.com/itsjesski/VRSleep/releases/new');
-  console.log(`3. Tag: v${version}`);
-  console.log(`4. Copy release notes from: RELEASE_NOTES.md`);
-  console.log('5. Upload the installer from dist/');
-  console.log('6. Publish the release\n');
-  console.log(`💡 Tip: Install GitHub CLI for automatic release creation:`);
-  console.log('   https://cli.github.com/\n');
 }
 
 main();
