@@ -89,5 +89,3 @@ jobs:
                 body: `${{ steps.changelog.outputs.notes }}`
               });
             }
-              });
-            }
