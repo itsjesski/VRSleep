@@ -36,32 +36,38 @@ jobs:
             const fs = require('fs');
             const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
             
-            // Extract the latest release section
+            // Extract the latest release section (first ## [version] section)
             const lines = changelog.split('\n');
             let releaseNotes = '';
+            let foundFirstRelease = false;
             let inLatestRelease = false;
-            let capturedLines = 0;
             
             for (const line of lines) {
-              // Start capturing after the main header
+              // Skip the main "# Changelog" header
               if (line.startsWith('# Changelog')) {
-                inLatestRelease = true;
                 continue;
               }
               
-              // Stop at the next major section or end
-              if (inLatestRelease && line.startsWith('## [') && capturedLines > 0) {
-                // Skip the next release, we only want the first one
+              // Start capturing when we hit the first release header
+              if (line.startsWith('## [') && !foundFirstRelease) {
+                foundFirstRelease = true;
+                inLatestRelease = true;
+                releaseNotes += line + '\n';
+                continue;
+              }
+              
+              // Stop capturing at the next release header
+              if (inLatestRelease && line.startsWith('## [') && foundFirstRelease) {
                 break;
               }
               
-              if (inLatestRelease && line.trim() !== '') {
+              // Capture all content until next release
+              if (inLatestRelease) {
                 releaseNotes += line + '\n';
-                capturedLines++;
               }
             }
             
-            // Remove trailing empty lines
+            // Remove trailing empty lines and normalize
             releaseNotes = releaseNotes.trim();
             
             if (!releaseNotes) {
