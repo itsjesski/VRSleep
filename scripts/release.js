@@ -341,7 +341,7 @@ async function main() {
       console.log('✓ Committed changelog');
 
       execSync(`npm version ${releaseType} --no-git-tag-version`, { stdio: 'inherit' });
-      execSync('git add package.json', { stdio: 'inherit' });
+      execSync('git add package.json package-lock.json', { stdio: 'inherit' });
       execSync(`git commit -m "chore: bump version to ${newVersion}"`, { stdio: 'inherit' });
       console.log(`✓ Bumped version to ${newVersion}`);
 
