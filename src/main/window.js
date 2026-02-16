@@ -16,7 +16,7 @@ function createMainWindow(onCheckForUpdates) {
     width: 500,
     height: 670,
     show: false, // Hidden initially to prevent visual artifacts during the initial load.
-    icon: path.join(__dirname, "..", "..", "images", "icon.ico"),
+    icon: path.join(__dirname, "..", "images", "icon.ico"),
     backgroundColor: "#0f1115",
     webPreferences: {
       preload: path.join(__dirname, "..", "preload", "preload.js"),

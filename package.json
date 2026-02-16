@@ -26,7 +26,7 @@
   "build": {
     "appId": "com.vrsleep.app",
     "productName": "VRSleep",
-    "icon": "images/icon.ico",
+    "icon": "src/images/icon.ico",
     "directories": {
       "output": "dist"
     },
