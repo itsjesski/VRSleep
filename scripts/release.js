@@ -61,6 +61,7 @@ function categorizeCommits(commits) {
     Changed: [],
     Fixed: [],
     Security: [],
+    Documentation: [],
     Other: []
   };
   
@@ -84,9 +85,9 @@ function categorizeCommits(commits) {
     improve: 'Changed',
     update: 'Changed',
     change: 'Changed',
+    docs: 'Documentation',
+    chore: 'Documentation',
     // Skip these types
-    docs: null,
-    chore: null,
     style: null,
     test: null,
     build: null,
@@ -184,7 +185,7 @@ function getTodayDate() {
  */
 function formatChangelog(categories) {
   let output = '';
-  const orderedCategories = ['Added', 'Changed', 'Fixed', 'Security'];
+  const orderedCategories = ['Added', 'Changed', 'Fixed', 'Security', 'Documentation'];
   
   for (const category of orderedCategories) {
     if (categories[category] && categories[category].length > 0) {

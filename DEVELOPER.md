@@ -251,12 +251,6 @@ git commit -m "sec: upgrade crypto library to v2.0"
 #### Commits That Are Ignored
 
 ```bash
-git commit -m "docs: update README with new examples"
-# Skipped (documentation-only change)
-
-git commit -m "chore: bump dependencies"
-# Skipped (maintenance task)
-
 git commit -m "style: fix indentation"
 # Skipped (code style only)
 
@@ -265,6 +259,21 @@ git commit -m "test: add unit tests for auth"
 
 git commit -m "ci: update GitHub Actions workflow"
 # Skipped (CI/CD only)
+
+git commit -m "build: update build config"
+# Skipped (build-only change)
+```
+
+#### Documentation Commits → "Documentation" Section
+
+```bash
+git commit -m "docs: update README with new examples"
+# Generates: Documentation
+#            - Update README with new examples
+
+git commit -m "chore: bump dependencies"
+# Generates: Documentation
+#            - Bump dependencies
 ```
 
 ### Non-Conventional Format (Still Works!)
