@@ -261,8 +261,14 @@ async function main() {
     
     console.log(`📦 Found ${commits.length} commit${commits.length !== 1 ? 's' : ''} since ${latestTag || 'beginning'}\n`);
 
-    // Get release type
-    const releaseType = await question('Release type (patch/minor/major): ');
+    // Get release type from argument or prompt
+    let releaseType = process.argv[2];
+    
+    if (!releaseType) {
+      releaseType = await question('Release type (patch/minor/major): ');
+    }
+    
+    releaseType = releaseType.toLowerCase().trim();
     if (!['patch', 'minor', 'major'].includes(releaseType)) {
       console.error('Invalid release type. Must be patch, minor, or major.');
       process.exit(1);

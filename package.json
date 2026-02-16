@@ -11,6 +11,9 @@
     "pack": "electron-builder --dir",
     "dist": "electron-builder --win",
     "release": "node scripts/release.js",
+    "release:patch": "node scripts/release.js patch",
+    "release:minor": "node scripts/release.js minor",
+    "release:major": "node scripts/release.js major",
     "changelog": "type CHANGELOG.md",
     "prepare-hooks": "node scripts/install-hooks.js",
     "postinstall": "node scripts/install-hooks.js"
