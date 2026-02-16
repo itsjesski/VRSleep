@@ -32,7 +32,6 @@ const sleepStatusDescription = document.getElementById(
 
 // --- DOM Elements: Customization Controls ---
 const inviteMessageToggle = document.getElementById("invite-message-toggle");
-const inviteMessageType = document.getElementById("invite-message-type");
 const inviteMessageSlot = document.getElementById("invite-message-slot");
 const inviteSlotPreview = document.getElementById("invite-slot-preview");
 const applySlotButton = document.getElementById("apply-slot");
@@ -274,7 +273,7 @@ async function saveSettings() {
     sleepStatus: sleepStatus.value || "none",
     sleepStatusDescription: sleepStatusDescription.value || "",
     inviteMessageSlot: Number(inviteMessageSlot.value) || 0,
-    inviteMessageType: inviteMessageType.value || "message",
+    inviteMessageType: "message",
     autoStatusEnabled,
     inviteMessageEnabled,
     activeTab,
@@ -297,7 +296,7 @@ function scheduleSettingsSave() {
  * Updates the 'Apply' button state based on cooldowns, duplicates, and loading status.
  */
 function updateApplyButtonState() {
-  const type = inviteMessageType.value;
+  const type = "message";
   const slot = Number(inviteMessageSlot.value);
 
   // Guard: Do not overwrite the button while an operation is in progress.
@@ -363,7 +362,7 @@ setInterval(() => {
  */
 setInterval(async () => {
   if (currentUser && !isApplying) {
-    const type = inviteMessageType.value;
+    const type = "message";
     try {
       const result = await window.sleepchat.getMessageSlot(
         type,
@@ -394,7 +393,7 @@ setInterval(async () => {
  * Fetches data for the specifically selected message slot from the API.
  */
 async function fetchSlots() {
-  const type = inviteMessageType.value;
+  const type = "message";
   const slot = Number(inviteMessageSlot.value);
 
   try {
@@ -426,7 +425,7 @@ async function fetchSlots() {
  * Populates all 48 slots sequentially. Used only when local cache is empty.
  */
 async function fetchAllSlotsSequentially() {
-  const types = ["message", "response", "request", "requestResponse"];
+  const types = ["message"];
   for (const type of types) {
     try {
       const result = await window.sleepchat.getMessageSlots(type);
@@ -445,7 +444,7 @@ async function fetchAllSlotsSequentially() {
  * Updates the UI preview box and character counts for the selected slot.
  */
 function updateSlotPreviews() {
-  const type = inviteMessageType.value;
+  const type = "message";
   const slot = Number(inviteMessageSlot.value);
   const slotData = cachedSlotsData[type]?.[slot];
 
@@ -612,12 +611,6 @@ sleepStatusDescription.addEventListener("input", () => {
   scheduleSettingsSave();
 });
 
-inviteMessageType.addEventListener("change", async () => {
-  await fetchSlots();
-  updateApplyButtonState();
-  scheduleSettingsSave();
-});
-
 inviteMessageSlot.addEventListener("change", async () => {
   await fetchSlots();
   updateApplyButtonState();
@@ -632,7 +625,7 @@ inviteSlotPreview.addEventListener("input", () => {
 });
 
 applySlotButton.addEventListener("click", async () => {
-  const type = inviteMessageType.value;
+  const type = "message";
   const slot = Number(inviteMessageSlot.value);
   const message = inviteSlotPreview.value;
 
@@ -796,9 +789,14 @@ async function loadSettings() {
   sleepStatus.style.color = STATUS_COLORS[sleepStatus.value] || "#e3e5e8";
   sleepStatusDescription.value = s.sleepStatusDescription || "";
   inviteMessageSlot.value = s.inviteMessageSlot || 0;
-  inviteMessageType.value = s.inviteMessageType || "message";
   autoStatusEnabled = !!s.autoStatusEnabled;
   inviteMessageEnabled = !!s.inviteMessageEnabled;
+
+  // Migration: Ensure old settings don't stick to non-Invite message types
+  if (s.inviteMessageType && s.inviteMessageType !== "message") {
+    saveSettings();
+  }
+
   autoStatusToggle.checked = autoStatusEnabled;
   inviteMessageToggle.checked = inviteMessageEnabled;
   if (s.activeTab) setActiveTab(s.activeTab);

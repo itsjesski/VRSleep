@@ -79,7 +79,7 @@ function createSleepMode({
       // Rule 1: Skip if we've already invited this sender in this session.
       // We still delete the notification to keep the user's feed clean.
       if (handledSenderIds.has(senderIdRaw)) {
-        if (inviteId) await deleteNotification(inviteId).catch(() => {});
+        if (inviteId) await deleteNotification(inviteId).catch(() => { });
         continue;
       }
 
@@ -94,7 +94,7 @@ function createSleepMode({
       if (!matches) {
         // If not whitelisted, we still hide the notification so it doesn't
         // clutter the feed or trigger future checks.
-        if (inviteId) await deleteNotification(inviteId).catch(() => {});
+        if (inviteId) await deleteNotification(inviteId).catch(() => { });
         continue;
       }
 
@@ -106,7 +106,7 @@ function createSleepMode({
           isInviteMessageEnabled && settings.inviteMessageSlot !== undefined
             ? settings.inviteMessageSlot
             : null;
-        const messageType = settings.inviteMessageType || "message";
+        const messageType = "message";
 
         await sendInvite(senderIdRaw, "", messageSlot, messageType);
 
@@ -115,11 +115,11 @@ function createSleepMode({
         log(`Sent invite to ${displayName}`);
 
         // Cleanup the notification after successful response
-        if (inviteId) await deleteNotification(inviteId).catch(() => {});
+        if (inviteId) await deleteNotification(inviteId).catch(() => { });
       } catch (error) {
         log(`Failed to send invite to ${displayName}: ${error.message}`);
         // Hide it anyway so we don't get stuck in an error loop on the same notification
-        if (inviteId) await deleteNotification(inviteId).catch(() => {});
+        if (inviteId) await deleteNotification(inviteId).catch(() => { });
       }
     }
   }
