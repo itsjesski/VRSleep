@@ -2,7 +2,13 @@ const { ipcMain } = require("electron");
 const { shell } = require("electron");
 const vrcapi = require("../api/vrcapi");
 const messageSlotsStore = require("../stores/message-slots-store");
-const { logError, getLogFilePath, clearLog, getLogFileSize } = require("../utils/logger");
+const {
+  logError,
+  logWarn,
+  getLogFilePath,
+  clearLog,
+  getLogFileSize,
+} = require("../utils/logger");
 
 /**
  * IPC Communication Module.
@@ -37,6 +43,20 @@ function getCachedSettings(getSettings) {
 function invalidateSettingsCache() {
   settingsCache = null;
   settingsCacheTimestamp = 0;
+}
+
+/**
+ * Detects transient network/timeout errors that should be logged as warnings.
+ */
+function isTransientNetworkError(error) {
+  const msg = String(error?.message || "").toLowerCase();
+  return (
+    msg.includes("fetch failed") ||
+    msg.includes("network") ||
+    msg.includes("timed out") ||
+    msg.includes("timeout") ||
+    msg.includes("aborted")
+  );
 }
 
 /**
@@ -227,7 +247,14 @@ function registerIpcHandlers({
 
       return { ok: true, slotData: result };
     } catch (error) {
-      logError("IPC", "Error in messages:get-slot", error);
+      if (isTransientNetworkError(error)) {
+        logWarn(
+          "IPC",
+          `Transient error in messages:get-slot: ${error.message}`,
+        );
+      } else {
+        logError("IPC", "Error in messages:get-slot", error);
+      }
       return { ok: false, error: error.message };
     }
   });

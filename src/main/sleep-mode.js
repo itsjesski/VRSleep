@@ -228,6 +228,20 @@ function createSleepMode({
 
     if (isAutoStatusEnabled && (hasStatusType || targetDescription !== "")) {
       try {
+        // If we've already set this exact target in the current Sleep session,
+        // skip redundant API writes.
+        if (preSleepStatus) {
+          const alreadyTargetStatus = hasStatusType
+            ? settings.sleepStatus
+            : preSleepStatus.status;
+          if (
+            setSleepStatus === alreadyTargetStatus &&
+            setSleepDescription === targetDescription
+          ) {
+            return;
+          }
+        }
+
         const user = await getCurrentUser();
 
         // Store original status before we modify it for the first time
