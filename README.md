@@ -1,6 +1,6 @@
-# VRSleep – Automate Your VRChat Experience While You Sleep
+# VRSleep – Automate Your VRChat Experience While You Sleep - An Oyasumi alternative!
 
-Never miss a friend invitation in VRChat again! VRSleep is a lightweight desktop app that automatically accepts invites from friends on your whitelist while you're offline, changes your status to a custom one and manages your invite messages—all without using your VR resources.
+VRSleep was created as a lightweight, low resource, and easy to run alternative to Oyasumi. We stripped out all of the features we didnt use and stuck only with what was needed. When you turn on sleep mode with this app you can have it set a custom status, and then when you get invites from people on your whitelist it will automatically send an invite back to them. That way your friends can join you while you're sleeping. 
 
 <img width="500" height="670" alt="VRSleep UI" src="https://github.com/user-attachments/assets/88bbffe3-9fce-49dd-8b6d-6d3761968e7a" />
 
