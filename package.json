@@ -2,6 +2,7 @@
   "name": "vrsleep",
   "version": "1.3.2",
   "description": "A simple low usage app that makes sleeping in VR easier. Auto invite friends, set custom status, and more.",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "author": "Jesski <jess@jesski.com>",
   "private": true,
   "productName": "VRSleep",

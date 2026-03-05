@@ -2,6 +2,16 @@
 
 Thank you for contributing! This guide will help you write commits that work with our automated release system.
 
+## License & Redistribution Rules
+
+VRSleep is licensed under **PolyForm Noncommercial 1.0.0**.
+
+- Commercial use is not allowed.
+- Selling this project or derivatives is not allowed.
+- Redistributed copies and modified versions must include the project's required notices from [NOTICE](NOTICE), including the original repository link: https://github.com/itsjesski/VRSleep
+
+By contributing, you agree that your contributions are provided under the same license terms used by this repository.
+
 ## 🚨 Important: Commit Message Format
 
 **VRSleep uses automated changelog generation.** Your commit messages become the release notes that users see!

@@ -1,5 +1,9 @@
 # VRSleep – Automate Your VRChat Experience While You Sleep
 
+[![License: PolyForm Noncommercial](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-blue.svg)](LICENSE)
+
+Non-commercial license: free to use, modify, and share for non-commercial purposes. Commercial use is not allowed.
+
 Never miss a friend invitation in VRChat again! VRSleep is a lightweight desktop app that automatically accepts invites from friends on your whitelist while you're offline, changes your status to a custom one and manages your invite messages—all without using your VR resources.
 
 <img width="500" height="670" alt="VRSleep UI" src="https://github.com/user-attachments/assets/88bbffe3-9fce-49dd-8b6d-6d3761968e7a" />
@@ -90,6 +94,14 @@ Your privacy matters. VRSleep:
 - Never uploads your data to external servers
 - Only communicates with VRChat's official API
 - Can be completely removed by uninstalling the app
+
+## License
+
+VRSleep is licensed under **PolyForm Noncommercial 1.0.0**.
+
+- You may use, modify, and redistribute this project for **non-commercial purposes only**.
+- Commercial use and selling software based on this project are **not allowed**.
+- Redistributed copies and derivatives must include the required notices, including a link back to the original repository: https://github.com/itsjesski/VRSleep
 
 ## Thank You
 
