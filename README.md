@@ -1,8 +1,8 @@
 # VRSleep – Automate Your VRChat Experience While You Sleep - An Oyasumi alternative!
 
-[![License: PolyForm Noncommercial](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-blue.svg)](LICENSE)
+[![License: GPL v2 or later](https://img.shields.io/badge/License-GPLv2%2B-blue.svg)](LICENSE)
 
-Non-commercial license: free to use, modify, and share for non-commercial purposes. Commercial use is not allowed.
+Open-source license: free to use, modify, and share under GPL v2 or later terms.
 
 VRSleep was created as a lightweight, low resource, and easy to run alternative to Oyasumi. We stripped out all of the features we didnt use and stuck only with what was needed. When you turn on sleep mode with this app you can have it set a custom status, and then when you get invites from people on your whitelist it will automatically send an invite back to them. That way your friends can join you while you're sleeping. 
 
@@ -97,11 +97,16 @@ Your privacy matters. VRSleep:
 
 ## License
 
-VRSleep is licensed under **PolyForm Noncommercial 1.0.0**.
+VRSleep is licensed under **GNU General Public License v2.0 or later (GPL-2.0-or-later)**.
 
-- You may use, modify, and redistribute this project for **non-commercial purposes only**.
-- Commercial use and selling software based on this project are **not allowed**.
-- Redistributed copies and derivatives must include the required notices, including a link back to the original repository: https://github.com/itsjesski/VRSleep
+- Derivatives distributed to others must also be licensed under GPL v2 or later.
+- Source code for distributed derivatives must be made available under GPL terms.
+- Commercial use is allowed by GPL, but recipients keep GPL freedoms.
+- If you redistribute, please include attribution and a link back to the original repository: https://github.com/itsjesski/VRSleep
+
+Community request (not a legal requirement under GPL):
+- Please keep a visible link back to the original repository in redistributed copies and forks.
+- Please do not sell this project or direct derivatives.
 
 ## Thank You
 

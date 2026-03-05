@@ -4,11 +4,15 @@ Thank you for contributing! This guide will help you write commits that work wit
 
 ## License & Redistribution Rules
 
-VRSleep is licensed under **PolyForm Noncommercial 1.0.0**.
+VRSleep is licensed under **GNU General Public License v2.0 or later (GPL-2.0-or-later)**.
 
-- Commercial use is not allowed.
-- Selling this project or derivatives is not allowed.
-- Redistributed copies and modified versions must include the project's required notices from [NOTICE](NOTICE), including the original repository link: https://github.com/itsjesski/VRSleep
+- If you distribute a modified version, it must remain licensed under GPL v2 or later.
+- If you distribute binaries, you must also provide corresponding source under GPL terms.
+- Please include attribution and a link back to the original repository when redistributing: https://github.com/itsjesski/VRSleep
+
+Community request (not a legal requirement under GPL):
+- Please keep a visible link back to the original repository in redistributed copies and forks.
+- Please do not sell this project or direct derivatives.
 
 By contributing, you agree that your contributions are provided under the same license terms used by this repository.
 
