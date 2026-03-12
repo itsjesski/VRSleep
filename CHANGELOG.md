@@ -2,6 +2,21 @@
 
 All notable changes to VRSleep will be documented in this file.
 
+## [1.4.0] - 2026-03-12
+
+### Added
+- Enhance friend management with whitelist functionality and UI updates
+- Update licensing to GPL v2 or later and revise redistribution rules in documentation
+- Add licensing information and redistribution rules to documentation
+- Add transient network error detection and logging in IPC handlers
+
+### Changed
+- Revise README to highlight VRSleep features
+
+---
+
+[Full commit history](https://github.com/itsjesski/VRSleep/commits/main)
+
 ## [1.3.2] - 2026-02-16
 
 ### Documentation
