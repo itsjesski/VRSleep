@@ -1,5 +1,6 @@
-const { dialog, BrowserWindow, ipcMain } = require("electron");
+const { dialog, BrowserWindow, ipcMain, app } = require("electron");
 const { autoUpdater } = require("electron-updater");
+const path = require("path");
 
 /**
  * Updater Module.
@@ -32,8 +33,11 @@ function setupAutoUpdater(getWindow, log) {
       maximizable: false,
       backgroundColor: "#0f1115",
       webPreferences: {
-        nodeIntegration: true,
-        contextIsolation: false,
+        preload: path.join(__dirname, "update-window-preload.js"),
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true,
+        devTools: !app.isPackaged,
       },
     });
 
@@ -141,10 +145,29 @@ function setupAutoUpdater(getWindow, log) {
             <div class="status" id="status">Preparing download...</div>
             <button id="installBtn">Install and Restart</button>
             <script>
-              const { ipcRenderer } = require('electron');
-              document.getElementById('installBtn').onclick = () => {
-                ipcRenderer.send('install-update');
+              const progressEl = document.getElementById('progress');
+              const statusEl = document.getElementById('status');
+              const titleEl = document.getElementById('title');
+              const installBtn = document.getElementById('installBtn');
+
+              installBtn.onclick = () => {
+                window.updateWindowApi.installUpdate();
               };
+
+              window.updateWindowApi.onProgress((payload) => {
+                const percent = Math.round(Number(payload?.percent) || 0);
+                progressEl.style.width = percent + '%';
+                progressEl.textContent = percent + '%';
+                statusEl.textContent = 'Downloading... ' + percent + '%';
+              });
+
+              window.updateWindowApi.onReady(() => {
+                progressEl.style.width = '100%';
+                progressEl.textContent = '100%';
+                statusEl.textContent = 'Download complete!';
+                titleEl.textContent = 'Update Ready';
+                installBtn.style.display = 'block';
+              });
             </script>
           </body>
         </html>
@@ -165,11 +188,7 @@ function setupAutoUpdater(getWindow, log) {
     log(`Downloading update: ${percent}%`);
 
     if (updateWindow && !updateWindow.isDestroyed()) {
-      updateWindow.webContents.executeJavaScript(`
-        document.getElementById('progress').style.width = '${percent}%';
-        document.getElementById('progress').textContent = '${percent}%';
-        document.getElementById('status').textContent = 'Downloading... ${percent}%';
-      `);
+      updateWindow.webContents.send("update-download-progress", { percent });
     }
   });
 
@@ -185,13 +204,7 @@ function setupAutoUpdater(getWindow, log) {
     }
 
     if (updateWindow && !updateWindow.isDestroyed()) {
-      updateWindow.webContents.executeJavaScript(`
-        document.getElementById('progress').style.width = '100%';
-        document.getElementById('progress').textContent = '100%';
-        document.getElementById('status').textContent = 'Download complete!';
-        document.getElementById('title').textContent = 'Update Ready';
-        document.getElementById('installBtn').style.display = 'block';
-      `);
+      updateWindow.webContents.send("update-download-ready");
 
       // One-time listener for the install button in the progress window
       ipcMain.once("install-update", () => {

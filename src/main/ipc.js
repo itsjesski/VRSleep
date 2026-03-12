@@ -1,5 +1,6 @@
 const { ipcMain } = require("electron");
 const { shell } = require("electron");
+const config = require("../config");
 const vrcapi = require("../api/vrcapi");
 const messageSlotsStore = require("../stores/message-slots-store");
 const {
@@ -22,6 +23,20 @@ const {
 let settingsCache = null;
 let settingsCacheTimestamp = 0;
 const SETTINGS_CACHE_TTL = 1000;
+const VALID_MESSAGE_TYPES = new Set([
+  "message",
+  "response",
+  "request",
+  "requestResponse",
+]);
+const VALID_SLEEP_STATUSES = new Set([
+  "none",
+  "join me",
+  "active",
+  "ask me",
+  "busy",
+]);
+const VALID_TABS = new Set(["whitelist", "customizations", "activity"]);
 
 /**
  * Gets settings with caching to improve performance.
@@ -45,6 +60,72 @@ function invalidateSettingsCache() {
   settingsCacheTimestamp = 0;
 }
 
+function sanitizeWhitelist(list) {
+  if (!Array.isArray(list)) return [];
+
+  const seen = new Set();
+  const result = [];
+
+  for (const item of list) {
+    if (typeof item !== "string") continue;
+    const value = item.trim().slice(0, 128);
+    if (!value) continue;
+    const key = value.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(value);
+    if (result.length >= 500) break;
+  }
+
+  return result;
+}
+
+function sanitizeSettings(settings) {
+  const input =
+    typeof settings === "object" && settings !== null && !Array.isArray(settings)
+      ? settings
+      : {};
+
+  const sleepStatus = String(input.sleepStatus || "none").trim().toLowerCase();
+  const activeTab = String(input.activeTab || "whitelist").trim().toLowerCase();
+  const inviteMessageType = String(input.inviteMessageType || "message").trim();
+  const inviteMessageSlot = Number(input.inviteMessageSlot);
+
+  return {
+    sleepStatus: VALID_SLEEP_STATUSES.has(sleepStatus) ? sleepStatus : "none",
+    sleepStatusDescription: String(input.sleepStatusDescription || "")
+      .trim()
+      .slice(0, 32),
+    inviteMessageSlot:
+      Number.isInteger(inviteMessageSlot) && inviteMessageSlot >= 0 && inviteMessageSlot <= 11
+        ? inviteMessageSlot
+        : 0,
+    inviteMessageType: VALID_MESSAGE_TYPES.has(inviteMessageType)
+      ? inviteMessageType
+      : "message",
+    autoStatusEnabled: Boolean(input.autoStatusEnabled),
+    inviteMessageEnabled: Boolean(input.inviteMessageEnabled),
+    activeTab: VALID_TABS.has(activeTab) ? activeTab : "whitelist",
+  };
+}
+
+function isValidMessageType(type) {
+  return VALID_MESSAGE_TYPES.has(String(type || "").trim());
+}
+
+function assertValidMessageType(type) {
+  if (!isValidMessageType(type)) {
+    throw new Error("Invalid message type");
+  }
+}
+
+function assertValidSlot(slot) {
+  const slotNum = Number(slot);
+  if (!Number.isInteger(slotNum) || slotNum < 0 || slotNum > 11) {
+    throw new Error("Invalid slot number (must be 0-11)");
+  }
+}
+
 /**
  * Detects transient network/timeout errors that should be logged as warnings.
  */
@@ -57,6 +138,49 @@ function isTransientNetworkError(error) {
     msg.includes("timeout") ||
     msg.includes("aborted")
   );
+}
+
+/**
+ * Detects authentication/session failures that require forcing a logout.
+ */
+function isSessionExpiredError(error) {
+  const status = Number(error?.status);
+  if (status === 401 || status === 403) return true;
+
+  const msg = String(error?.message || "").toLowerCase();
+  return (
+    msg.includes("missing credentials") ||
+    msg.includes("not authenticated") ||
+    msg.includes("unauthorized") ||
+    msg.includes("invalid credentials") ||
+    msg.includes("login required")
+  );
+}
+
+/**
+ * Logs the user out if the error indicates an expired session and notifies renderer.
+ */
+async function handleSessionExpiration(error, auth, event) {
+  if (!isSessionExpiredError(error)) return false;
+
+  const status = auth.getStatus();
+  if (!status?.authenticated) return false;
+
+  try {
+    await auth.logout();
+  } catch (logoutError) {
+    logWarn("IPC", `Failed to clear auth during session expiration: ${logoutError.message}`);
+  }
+
+  if (event?.sender) {
+    event.sender.send("auth:session-expired", {
+      message:
+        config.uiText?.sessionExpiredMessage ||
+        "Your VRChat session expired. Please log in again.",
+    });
+  }
+
+  return true;
 }
 
 /**
@@ -76,12 +200,15 @@ function registerIpcHandlers({
 }) {
   // Whitelist & Settings
   ipcMain.handle("whitelist:get", () => getWhitelist());
-  ipcMain.handle("whitelist:set", (_event, list) => setWhitelist(list));
+  ipcMain.handle("whitelist:set", (_event, list) =>
+    setWhitelist(sanitizeWhitelist(list)),
+  );
   ipcMain.handle("settings:get", () => getCachedSettings(getSettings));
   ipcMain.handle("settings:set", (_event, settings) => {
     invalidateSettingsCache();
-    return setSettings(settings);
+    return setSettings(sanitizeSettings(settings));
   });
+  ipcMain.handle("app:get-ui-text", () => ({ ...(config.uiText || {}) }));
 
   // Sleep Mode Control
   ipcMain.handle("sleep:start", () => sleepMode.start());
@@ -90,12 +217,13 @@ function registerIpcHandlers({
 
   // Authentication
   ipcMain.handle("auth:status", () => auth.getStatus());
-  ipcMain.handle("auth:user", async () => {
+  ipcMain.handle("auth:user", async (_event) => {
     try {
       const user = await getCurrentUser();
       return { ok: true, user };
     } catch (error) {
-      return { ok: false, error: error.message };
+      const sessionExpired = await handleSessionExpiration(error, auth, _event);
+      return { ok: false, error: error.message, sessionExpired };
     }
   });
 
@@ -138,12 +266,13 @@ function registerIpcHandlers({
     return { ok: true };
   });
 
-  ipcMain.handle("friends:get", async () => {
+  ipcMain.handle("friends:get", async (_event) => {
     try {
       const friends = await getFriends();
       return { ok: true, friends };
     } catch (error) {
-      return { ok: false, error: error.message };
+      const sessionExpired = await handleSessionExpiration(error, auth, _event);
+      return { ok: false, error: error.message, sessionExpired };
     }
   });
 
@@ -230,6 +359,8 @@ function registerIpcHandlers({
   ipcMain.handle("messages:get-slot", async (_event, { type, slot }) => {
     console.log(`IPC: messages:get-slot type=${type}, slot=${slot}`);
     try {
+      assertValidMessageType(type);
+      assertValidSlot(slot);
       const authStatus = auth.getStatus();
       if (!authStatus.authenticated || !authStatus.userId) {
         throw new Error("Not authenticated");
@@ -247,6 +378,7 @@ function registerIpcHandlers({
 
       return { ok: true, slotData: result };
     } catch (error) {
+      const sessionExpired = await handleSessionExpiration(error, auth, _event);
       if (isTransientNetworkError(error)) {
         logWarn(
           "IPC",
@@ -255,13 +387,14 @@ function registerIpcHandlers({
       } else {
         logError("IPC", "Error in messages:get-slot", error);
       }
-      return { ok: false, error: error.message };
+      return { ok: false, error: error.message, sessionExpired };
     }
   });
 
   ipcMain.handle("messages:get-all", async (_event, type) => {
     console.log(`IPC: messages:get-all type=${type}`);
     try {
+      assertValidMessageType(type);
       const authStatus = auth.getStatus();
       if (!authStatus.authenticated || !authStatus.userId) {
         throw new Error("Not authenticated");
@@ -281,8 +414,9 @@ function registerIpcHandlers({
 
       return { ok: true, messages: result };
     } catch (error) {
+      const sessionExpired = await handleSessionExpiration(error, auth, _event);
       logError("IPC", "Error in messages:get-all", error);
-      return { ok: false, error: error.message };
+      return { ok: false, error: error.message, sessionExpired };
     }
   });
 
@@ -291,6 +425,8 @@ function registerIpcHandlers({
     async (_event, { type, slot, message }) => {
       console.log(`IPC: messages:update-slot type=${type}, slot=${slot}`);
       try {
+        assertValidMessageType(type);
+        assertValidSlot(slot);
         const authStatus = auth.getStatus();
         if (!authStatus.authenticated || !authStatus.userId) {
           throw new Error("Not authenticated");
@@ -316,6 +452,7 @@ function registerIpcHandlers({
 
         return { ok: true, result };
       } catch (error) {
+        const sessionExpired = await handleSessionExpiration(error, auth, _event);
         logError("IPC", "Error in messages:update-slot", error);
 
         // If we get a 429, we KNOW the slot is locked.
@@ -333,7 +470,7 @@ function registerIpcHandlers({
           );
         }
 
-        return { ok: false, error: error.message };
+        return { ok: false, error: error.message, sessionExpired };
       }
     },
   );
@@ -345,6 +482,8 @@ function registerIpcHandlers({
   ipcMain.handle(
     "messages:set-cooldown",
     async (_event, { type, slot, unlockTimestamp }) => {
+      assertValidMessageType(type);
+      assertValidSlot(slot);
       messageSlotsStore.updateSlotCooldown(type, slot, unlockTimestamp);
       return { ok: true };
     },

@@ -4,6 +4,15 @@ const config = require("../config");
 
 let inMemoryAuth = null;
 
+function parseJsonSafely(text) {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch (_error) {
+    return null;
+  }
+}
+
 /**
  * Parses a cookie string into a key-value object.
  */
@@ -122,11 +131,14 @@ async function requestJson(path, options = {}) {
     });
 
     const text = await response.text();
-    const json = text ? JSON.parse(text) : null;
+    const json = parseJsonSafely(text);
 
     if (!response.ok) {
       const message =
-        json?.error?.message || json?.message || `HTTP ${response.status}`;
+        json?.error?.message ||
+        json?.message ||
+        text ||
+        `HTTP ${response.status}`;
       const err = new Error(message);
       err.status = response.status;
       err.data = json; // Attach full error details (like cooldown messages)

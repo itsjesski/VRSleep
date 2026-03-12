@@ -59,6 +59,7 @@ contextBridge.exposeInMainWorld("sleepchat", {
     validateObject(settings, "settings");
     return ipcRenderer.invoke("settings:set", settings);
   },
+  getUiText: () => ipcRenderer.invoke("app:get-ui-text"),
 
   // Sleep Mode Engine Controls
   startSleep: () => ipcRenderer.invoke("sleep:start"),
@@ -130,5 +131,11 @@ contextBridge.exposeInMainWorld("sleepchat", {
   onUpdateAvailable: (handler) => {
     ipcRenderer.removeAllListeners("update-available");
     ipcRenderer.on("update-available", () => handler());
+  },
+  onSessionExpired: (handler) => {
+    ipcRenderer.removeAllListeners("auth:session-expired");
+    ipcRenderer.on("auth:session-expired", (_event, payload) =>
+      handler(payload),
+    );
   },
 });
