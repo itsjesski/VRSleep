@@ -2,6 +2,18 @@
 
 All notable changes to VRSleep will be documented in this file.
 
+## [1.5.0] - 2026-03-12
+
+### Added
+- Refactor to make everything more managable. Fix issue where session would expire and not tell you. Add TTL for api calls.
+
+### Changed
+- Update README with new image and feature details
+
+---
+
+[Full commit history](https://github.com/itsjesski/VRSleep/commits/main)
+
 ## [1.4.0] - 2026-03-12
 
 ### Added
