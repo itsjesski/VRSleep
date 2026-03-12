@@ -124,10 +124,6 @@ app.whenReady().then(() => {
     getSettings,
     setSettings: (settings) => {
       const next = setSettings(settings);
-      // Immediately refresh engine state when settings change via UI
-      if (sleepModeInstance) {
-        sleepModeInstance.refreshStatus();
-      }
       notifySettingsChanged(next);
       return next;
     },

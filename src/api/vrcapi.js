@@ -138,34 +138,55 @@ async function deleteNotification(notificationId) {
  * Fetches the full list of friends for the current user.
  */
 async function getFriends() {
-  let allFriends = [];
-  let offset = 0;
-  const limit = 100;
-  let hasMore = true;
+  async function fetchFriendsBatch(includeOffline = false) {
+    const results = [];
+    let offset = 0;
+    const limit = 100;
+    let hasMore = true;
 
-  while (hasMore) {
-    const { json: friends } = await requestJson(
-      `/auth/user/friends?n=${limit}&offset=${offset}`,
-      {
-        method: "GET",
-        headers: getHeaders(),
-      },
-    );
+    while (hasMore) {
+      const suffix = includeOffline ? "&offline=true" : "";
+      const { json: friends } = await requestJson(
+        `/auth/user/friends?n=${limit}&offset=${offset}${suffix}`,
+        {
+          method: "GET",
+          headers: getHeaders(),
+        },
+      );
 
-    if (!Array.isArray(friends) || friends.length === 0) {
-      hasMore = false;
-      break;
+      if (!Array.isArray(friends) || friends.length === 0) {
+        hasMore = false;
+        break;
+      }
+
+      results.push(...friends);
+      if (friends.length < limit) {
+        hasMore = false;
+      } else {
+        offset += limit;
+      }
     }
 
-    allFriends.push(...friends);
-    if (friends.length < limit) {
-      hasMore = false;
-    } else {
-      offset += limit;
-    }
+    return results;
   }
 
-  return allFriends.map((friend) => ({
+  const friendMap = new Map();
+
+  const onlineFriends = await fetchFriendsBatch(false);
+  onlineFriends.forEach((friend) => {
+    if (friend?.id) friendMap.set(friend.id, friend);
+  });
+
+  try {
+    const offlineFriends = await fetchFriendsBatch(true);
+    offlineFriends.forEach((friend) => {
+      if (friend?.id) friendMap.set(friend.id, friend);
+    });
+  } catch (error) {
+    logError("VRChatAPI", "Failed to fetch offline friends", error);
+  }
+
+  return Array.from(friendMap.values()).map((friend) => ({
     id: friend.id,
     displayName: friend.displayName,
     username: friend.username,

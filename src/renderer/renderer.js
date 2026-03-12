@@ -16,16 +16,19 @@ const userDisplayName = document.getElementById("user-display-name");
 const authHint = document.getElementById("auth-hint");
 
 // --- DOM Elements: Whitelist & Logs ---
-const whitelistInput = document.getElementById("whitelist");
+const whitelistList = document.getElementById("whitelist-list");
+const whitelistEmpty = document.getElementById("whitelist-empty");
 const whitelistStatus = document.getElementById("whitelist-status");
 const manageWhitelistButton = document.getElementById("manage-whitelist");
 const logList = document.getElementById("log");
+const logEmpty = document.getElementById("log-empty");
 
 // --- DOM Elements: Sleep Mode Controls ---
 const statusBadge = document.getElementById("status");
 const toggleButton = document.getElementById("toggle");
 const autoStatusToggle = document.getElementById("auto-status-toggle");
 const sleepStatus = document.getElementById("sleep-status");
+const sleepStatusDot = document.getElementById("sleep-status-dot");
 const sleepStatusDescription = document.getElementById(
   "sleep-status-description",
 );
@@ -51,6 +54,8 @@ const friendsSearch = document.getElementById("friends-search");
 const friendsList = document.getElementById("friends-list");
 const friendsSave = document.getElementById("friends-save");
 const friendsClose = document.getElementById("friends-close");
+const friendsManualInput = document.getElementById("friends-manual-input");
+const friendsManualAdd = document.getElementById("friends-manual-add");
 
 const tabWhitelist = document.getElementById("tab-whitelist");
 const tabCustomizations = document.getElementById("tab-customizations");
@@ -82,6 +87,7 @@ let twoFactorType = "totp";
 let twoFactorMethods = [];
 let allFriends = [];
 let selectedFriends = new Set();
+let whitelistEntries = [];
 let cachedSlotsData = {
   message: [],
   response: [],
@@ -131,17 +137,146 @@ function setStatus(enabled) {
 function appendLog(message) {
   const item = document.createElement("div");
   item.className = "log-item";
+  if (typeof message === "string" && message.startsWith("Sent invite to ")) {
+    item.classList.add("invite-event");
+  }
   const timestamp = new Date().toLocaleTimeString();
   item.textContent = `[${timestamp}] ${message}`;
   logList.prepend(item);
+  updateLogEmptyState();
+}
+
+function updateLogEmptyState() {
+  if (!logEmpty) return;
+  const hasEvents = logList && logList.childElementCount > 0;
+  logEmpty.classList.toggle("hidden", hasEvents);
+}
+
+function normalizeWhitelistEntry(entry) {
+  return String(entry || "").trim();
+}
+
+function getFriendForWhitelistEntry(entry) {
+  const normalized = String(entry || "").trim().toLowerCase();
+  if (!normalized || !Array.isArray(allFriends) || allFriends.length === 0) {
+    return null;
+  }
+
+  return (
+    allFriends.find((friend) => {
+      const id = String(friend.id || "").toLowerCase();
+      const displayName = String(friend.displayName || "").toLowerCase();
+      return normalized === id || normalized === displayName;
+    }) || null
+  );
+}
+
+function formatFriendStatus(friend) {
+  const rawStatus = String(friend?.status || "").trim().toLowerCase();
+  if (rawStatus === "offline") {
+    return { text: "Offline", isOffline: true, color: STATUS_COLORS.none };
+  }
+
+  const text =
+    String(friend?.statusDescription || "").trim() ||
+    String(friend?.status || "").trim() ||
+    "Online";
+
+  const color =
+    rawStatus === "join me"
+      ? STATUS_COLORS["join me"]
+      : rawStatus === "ask me"
+        ? STATUS_COLORS["ask me"]
+        : rawStatus === "busy"
+          ? STATUS_COLORS.busy
+          : STATUS_COLORS.active;
+
+  return { text, isOffline: false, color };
+}
+
+function renderWhitelistList() {
+  if (!whitelistList) return;
+
+  whitelistList.innerHTML = "";
+
+  const deduped = [];
+  const seen = new Set();
+  for (const entry of whitelistEntries) {
+    const cleaned = normalizeWhitelistEntry(entry);
+    if (!cleaned) continue;
+    const key = cleaned.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(cleaned);
+  }
+  whitelistEntries = deduped;
+
+  whitelistEntries.forEach((entry, index) => {
+    const row = document.createElement("div");
+    row.className = "whitelist-item";
+
+    const main = document.createElement("div");
+    main.className = "whitelist-main";
+
+    const name = document.createElement("div");
+    name.className = "whitelist-name";
+    name.textContent = entry;
+
+    const friend = getFriendForWhitelistEntry(entry);
+    const subtext = document.createElement("div");
+    subtext.className = "whitelist-subtext";
+    if (friend) {
+      const statusInfo = formatFriendStatus(friend);
+      const dot = document.createElement("span");
+      dot.className = "status-dot";
+      dot.style.backgroundColor = statusInfo.color;
+
+      const text = document.createElement("span");
+      text.textContent = statusInfo.text;
+
+      subtext.appendChild(dot);
+      subtext.appendChild(text);
+      if (statusInfo.isOffline) {
+        subtext.classList.add("offline");
+      }
+    } else {
+      subtext.textContent = "Not in friends list";
+    }
+
+    const removeButton = document.createElement("button");
+    removeButton.className = "whitelist-remove";
+    removeButton.textContent = "✕";
+    removeButton.title = `Remove ${entry}`;
+    removeButton.addEventListener("click", () => {
+      whitelistEntries.splice(index, 1);
+      renderWhitelistList();
+      scheduleAutoSave();
+      appendLog(`Removed ${entry} from whitelist.`);
+    });
+
+    main.appendChild(name);
+    main.appendChild(subtext);
+    row.appendChild(main);
+    row.appendChild(removeButton);
+    whitelistList.appendChild(row);
+  });
+
+  if (whitelistEmpty) {
+    whitelistEmpty.classList.toggle("hidden", whitelistEntries.length > 0);
+  }
 }
 
 /**
  * Updates the visual save-status of the whitelist.
  */
-function setWhitelistStatus(text, state = "saved") {
-  whitelistStatus.textContent = text;
-  whitelistStatus.className = `status ${state}`;
+function setWhitelistStatus(text, state = "error") {
+  if (state === "error" && text) {
+    whitelistStatus.textContent = text;
+    whitelistStatus.style.display = "block";
+  } else {
+    whitelistStatus.style.display = "none";
+    whitelistStatus.textContent = "";
+  }
 }
 
 /**
@@ -230,35 +365,81 @@ async function refreshAuthStatus() {
  */
 async function loadWhitelist() {
   const list = await window.sleepchat.getWhitelist();
-  whitelistInput.value = list.join("\n");
-  setWhitelistStatus("Saved");
+  whitelistEntries = Array.isArray(list)
+    ? list.map(normalizeWhitelistEntry).filter(Boolean)
+    : [];
+  renderWhitelistList();
+  setWhitelistStatus("");
 }
 
 /**
  * Saves the current whitelist to local storage.
  */
 async function saveWhitelist() {
-  const list = whitelistInput.value
-    .split("\n")
-    .map((e) => e.trim())
-    .filter(Boolean);
-  await window.sleepchat.setWhitelist(list);
-  setWhitelistStatus("Saved", "saved");
-  appendLog(
-    list.length > 0 ? `Whitelist: ${list.join(", ")}` : "Whitelist cleared.",
-  );
+  renderWhitelistList();
+  const list = [...whitelistEntries];
+  try {
+    await window.sleepchat.setWhitelist(list);
+    setWhitelistStatus("");
+    appendLog(
+      list.length > 0 ? `Whitelist: ${list.join(", ")}` : "Whitelist cleared.",
+    );
+  } catch (err) {
+    setWhitelistStatus("Failed to save whitelist.", "error");
+  }
 }
 
 /**
  * Debounces whitelist saving to prevent excessive disk writes.
  */
 function scheduleAutoSave() {
-  setWhitelistStatus("Unsaved", "unsaved");
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
-    setWhitelistStatus("Saving...", "saving");
     await saveWhitelist();
   }, 1000);
+}
+
+function closeFriendsModal() {
+  friendsModal.classList.remove("active");
+  if (friendsSearch) friendsSearch.value = "";
+  if (friendsManualInput) friendsManualInput.value = "";
+}
+
+function addWhitelistEntry(entry) {
+  const cleaned = normalizeWhitelistEntry(entry);
+  if (!cleaned) return { added: false, reason: "empty" };
+
+  const exists = whitelistEntries.some(
+    (item) => item.toLowerCase() === cleaned.toLowerCase(),
+  );
+  if (exists) return { added: false, reason: "duplicate" };
+
+  whitelistEntries.push(cleaned);
+  renderWhitelistList();
+  scheduleAutoSave();
+  return { added: true, value: cleaned };
+}
+
+async function refreshFriendsCache() {
+  try {
+    const result = await window.sleepchat.getFriends();
+    if (!result.ok || !Array.isArray(result.friends)) return false;
+    allFriends = result.friends;
+    renderWhitelistList();
+    if (friendsModal.classList.contains("active")) {
+      renderFriendsList(allFriends);
+    }
+    return true;
+  } catch (_error) {
+    return false;
+  }
+}
+
+function startFriendStatusPolling() {
+  setInterval(async () => {
+    if (!currentUser) return;
+    await refreshFriendsCache();
+  }, 60000);
 }
 
 /**
@@ -485,7 +666,28 @@ function renderFriendsList(friends) {
 
     const info = document.createElement("div");
     info.className = "friend-info";
-    info.innerHTML = `<div class="friend-name">${friend.displayName}</div><div class="friend-status">${friend.statusDescription || friend.status}</div>`;
+    const name = document.createElement("div");
+    name.className = "friend-name";
+    name.textContent = friend.displayName;
+
+    const status = document.createElement("div");
+    status.className = "friend-status";
+    const statusInfo = formatFriendStatus(friend);
+    const dot = document.createElement("span");
+    dot.className = "status-dot";
+    dot.style.backgroundColor = statusInfo.color;
+
+    const text = document.createElement("span");
+    text.textContent = statusInfo.text;
+
+    status.appendChild(dot);
+    status.appendChild(text);
+    if (statusInfo.isOffline) {
+      status.classList.add("offline");
+    }
+
+    info.appendChild(name);
+    info.appendChild(status);
 
     item.appendChild(avatar);
     item.appendChild(info);
@@ -519,7 +721,12 @@ function setActiveTab(tabName) {
   scheduleSettingsSave();
 }
 
-tabWhitelist.addEventListener("click", () => setActiveTab("whitelist"));
+tabWhitelist.addEventListener("click", async () => {
+  setActiveTab("whitelist");
+  if (currentUser) {
+    await refreshFriendsCache();
+  }
+});
 tabActivity.addEventListener("click", () => setActiveTab("activity"));
 tabCustomizations.addEventListener("click", () => {
   setActiveTab("customizations");
@@ -528,27 +735,35 @@ tabCustomizations.addEventListener("click", () => {
 
 // --- Event Listeners: Whitelist & Friends ---
 
-whitelistInput.addEventListener("input", scheduleAutoSave);
-
 manageWhitelistButton.addEventListener("click", async () => {
-  appendLog("Loading friends list...");
-  const result = await window.sleepchat.getFriends();
-  if (!result.ok) return appendLog(`Failed: ${result.error}`);
+  friendsModal.classList.add("active");
+  if (allFriends.length > 0) {
+    renderFriendsList(allFriends);
+  } else {
+    friendsList.innerHTML =
+      '<div style="padding: 20px; text-align: center; color: var(--color-muted);">Loading friends...</div>';
+  }
 
-  allFriends = result.friends;
-  const current = whitelistInput.value.toLowerCase();
+  appendLog("Loading friends list.");
+  const ok = await refreshFriendsCache();
+  if (!ok) {
+    allFriends = [];
+    renderFriendsList(allFriends);
+    appendLog("Failed: Could not refresh friends list.");
+    return;
+  }
+
+  const existing = new Set(whitelistEntries.map((e) => e.toLowerCase()));
   selectedFriends.clear();
   allFriends.forEach((f) => {
-    if (
-      current.includes(f.id.toLowerCase()) ||
-      current.includes(f.displayName.toLowerCase())
-    ) {
+    const friendId = String(f.id || "").toLowerCase();
+    const friendName = String(f.displayName || "").toLowerCase();
+    if (existing.has(friendId) || existing.has(friendName)) {
       selectedFriends.add(f.id);
     }
   });
 
   renderFriendsList(allFriends);
-  friendsModal.classList.add("active");
 });
 
 friendsSearch.addEventListener("input", () => {
@@ -565,19 +780,19 @@ friendsSearch.addEventListener("input", () => {
 friendsSave.addEventListener("click", () => {
   const selectedNames = allFriends
     .filter((f) => selectedFriends.has(f.id))
-    .map((f) => f.displayName);
-  const existing = whitelistInput.value
-    .split("\n")
-    .map((l) => l.trim())
+    .map((f) => f.displayName || f.id)
     .filter(Boolean);
-  const existingLower = existing.map((e) => e.toLowerCase());
+  const existingLower = whitelistEntries.map((e) => e.toLowerCase());
   const newOnes = selectedNames.filter(
     (n) => !existingLower.includes(n.toLowerCase()),
   );
 
-  whitelistInput.value = [...existing, ...newOnes].join("\n");
-  scheduleAutoSave();
-  friendsModal.classList.remove("active");
+  if (newOnes.length > 0) {
+    whitelistEntries = [...whitelistEntries, ...newOnes];
+    renderWhitelistList();
+    scheduleAutoSave();
+  }
+  closeFriendsModal();
   appendLog(
     newOnes.length > 0
       ? `Added ${newOnes.length} friends.`
@@ -585,9 +800,25 @@ friendsSave.addEventListener("click", () => {
   );
 });
 
-friendsClose.addEventListener("click", () =>
-  friendsModal.classList.remove("active"),
-);
+friendsManualAdd.addEventListener("click", () => {
+  const result = addWhitelistEntry(friendsManualInput.value);
+  if (result.added) {
+    appendLog(`Added ${result.value} to whitelist.`);
+    closeFriendsModal();
+    return;
+  }
+  if (result.reason === "duplicate") {
+    appendLog("That person is already in the whitelist.");
+  }
+});
+
+friendsManualInput.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  friendsManualAdd.click();
+});
+
+friendsClose.addEventListener("click", closeFriendsModal);
 
 // --- Event Listeners: Settings & Customization ---
 
@@ -601,8 +832,15 @@ inviteMessageToggle.addEventListener("change", () => {
   scheduleSettingsSave();
 });
 
+function updateSleepStatusDot() {
+  if (sleepStatusDot) {
+    sleepStatusDot.style.backgroundColor =
+      STATUS_COLORS[sleepStatus.value] || "var(--color-muted)";
+  }
+}
+
 sleepStatus.addEventListener("change", () => {
-  sleepStatus.style.color = STATUS_COLORS[sleepStatus.value] || "#e3e5e8";
+  updateSleepStatusDot();
   scheduleSettingsSave();
 });
 
@@ -613,8 +851,10 @@ sleepStatusDescription.addEventListener("input", () => {
   scheduleSettingsSave();
 });
 
-inviteMessageSlot.addEventListener("change", async () => {
-  await fetchSlots();
+inviteMessageSlot.addEventListener("change", () => {
+  if (currentUser) {
+    fetchSlots();
+  }
   updateApplyButtonState();
   scheduleSettingsSave();
 });
@@ -685,6 +925,7 @@ loginButton.addEventListener("click", async () => {
         const hasCache = await loadCachedSlots();
         if (!hasCache) await fetchAllSlotsSequentially();
         else await fetchSlots();
+        await refreshFriendsCache();
       }
     }
   } catch (e) {
@@ -738,6 +979,7 @@ modalSubmit.addEventListener("click", async () => {
       const hasCache = await loadCachedSlots();
       if (!hasCache) await fetchAllSlotsSequentially();
       else await fetchSlots();
+      await refreshFriendsCache();
     }
   } catch (e) {
     setAuthHint(e.message, true);
@@ -813,8 +1055,9 @@ async function loadCachedSlots() {
 
 async function loadSettings() {
   const s = await window.sleepchat.getSettings();
-  sleepStatus.value = s.sleepStatus || "none";
-  sleepStatus.style.color = STATUS_COLORS[sleepStatus.value] || "#e3e5e8";
+  const storedStatus = s.sleepStatus || "none";
+  sleepStatus.value = storedStatus;
+  updateSleepStatusDot();
   sleepStatusDescription.value = s.sleepStatusDescription || "";
   inviteMessageSlot.value = s.inviteMessageSlot || 0;
   autoStatusEnabled = !!s.autoStatusEnabled;
@@ -839,11 +1082,14 @@ async function loadCooldowns() {
 // --- Initialization ---
 
 (async () => {
+  updateLogEmptyState();
+  startFriendStatusPolling();
+
   // 1. Instantly check local auth status and show the view
   const isAuthenticated = await refreshAuthStatus();
 
   // 2. Load disk data in parallel
-  const [hasCache] = await Promise.all([
+  await Promise.all([
     loadCachedSlots(),
     loadWhitelist(),
     loadSettings(),
@@ -853,9 +1099,9 @@ async function loadCooldowns() {
   // 3. Sync Engine state
   window.sleepchat.getStatus().then((s) => setStatus(s.sleepMode));
 
-  // 4. Fetch currently selected slot only
-  // Background polling (60s interval) will sync the rest without hammering the API
+  // 4. Initial API sync after startup.
   if (isAuthenticated) {
     await fetchSlots();
+    await refreshFriendsCache();
   }
 })();
