@@ -6,7 +6,7 @@ Open-source license: free to use, modify, and share under GPL v2 or later terms.
 
 VRSleep was created as a lightweight, low resource, and easy to run alternative to Oyasumi. We stripped out all of the features we didnt use and stuck only with what was needed. When you turn on sleep mode with this app you can have it set a custom status, and then when you get invites from people on your whitelist it will automatically send an invite back to them. That way your friends can join you while you're sleeping. 
 
-To install just [visit the releases page](https://github.com/itsjesski/VRSleep/releases/latest) and download the exe version!
+### **[Download here.](https://github.com/itsjesski/VRSleep/releases/latest)**
 
 <img width="466" height="501" alt="image" src="https://github.com/user-attachments/assets/7a70e692-24dd-47ec-a04d-4076a9ea0e55" />
 
